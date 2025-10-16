@@ -5,7 +5,8 @@
       "room": "demo",
       "title": "",
       "text": "",
-      "images": []
+      "images": [],
+      "bannerEnabled": false
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",

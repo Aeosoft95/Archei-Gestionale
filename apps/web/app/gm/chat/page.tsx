@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWS, useWSMessages } from '@/components/ws/WSProvider'
 import DicePreview from '@/components/DicePreview'
 import { archeiRoll } from '@shared/dice'
@@ -10,13 +10,18 @@ type CountdownItem = { label:string; value:number; max:number }
 type ClockItem = { name:string; value:number; max:number }
 type InitiativeState = { entries:InitEntry[]; active:number; round:number; visible:boolean }
 
+// chiavi base (verranno “namespaced” per room)
 const LS_SCENE = 'archei:gm:scene'
-const LS_CD = 'archei:gm:countdown'
-const LS_CK = 'archei:gm:clocks'
-const LS_INIT = 'archei:gm:init'
+const LS_CD    = 'archei:gm:countdown'
+const LS_CK    = 'archei:gm:clocks'
+const LS_INIT  = 'archei:gm:init'
+
+// helper: chiave per stanza
+const keyFor = (base: string, room?: string) => `${base}:${room || 'default'}`
 
 export default function GmChatPage() {
   const { config, connected, connecting, error, openSetup, send } = useWS()
+  const room = config?.room || 'default'
 
   // chat/dadi
   const [messages, setMessages] = useState<Msg[]>([])
@@ -42,28 +47,73 @@ export default function GmChatPage() {
   const [displayInitiative, setDisplayInitiative] = useState<InitiativeState>({ entries:[], active:0, round:1, visible:false })
   const [newInitName, setNewInitName] = useState(''); const [newInitVal, setNewInitVal] = useState(10)
 
+  // debounce salvataggi
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleSave = (fn:()=>void) => { if (saveTimer.current) clearTimeout(saveTimer.current); saveTimer.current = setTimeout(fn, 300) }
+
   // ruolo
   useEffect(()=>{ localStorage.setItem('archei:role','gm') }, [])
 
-  // restore locali
+  // restore per stanza
   useEffect(()=>{ try{
-    const sc = JSON.parse(localStorage.getItem(LS_SCENE) || '{"title":"","text":"","images":""}')
-    setSceneTitle(sc.title||''); setSceneText(sc.text||''); setSceneImages(sc.images||'')
-    setCdItems(JSON.parse(localStorage.getItem(LS_CD) || '[]'))
-    const cks = JSON.parse(localStorage.getItem(LS_CK) || '[]'); setCkItems(cks); setDisplayClocks(cks)
-    setInit(JSON.parse(localStorage.getItem(LS_INIT) || '{"entries":[],"active":0,"round":1,"visible":true}'))
-  }catch{} }, [])
+    const sc = JSON.parse(localStorage.getItem(keyFor(LS_SCENE, room)) || '{"title":"","text":"","images":""}')
+    setSceneTitle(sc.title||''); setSceneText(sc.text||''); setSceneImages(Array.isArray(sc.images)? sc.images.join('\n') : (sc.images||''))
+  }catch{} }, [room])
 
-  // persist
-  useEffect(()=>{ localStorage.setItem(LS_SCENE, JSON.stringify({ title:sceneTitle, text:sceneText, images:sceneImages })) }, [sceneTitle, sceneText, sceneImages])
-  useEffect(()=>{ localStorage.setItem(LS_CD, JSON.stringify(cdItems)) }, [cdItems])
-  useEffect(()=>{ localStorage.setItem(LS_CK, JSON.stringify(ckItems)) }, [ckItems])
-  useEffect(()=>{ localStorage.setItem(LS_INIT, JSON.stringify(init)) }, [init])
+  useEffect(()=>{ try{ setCdItems(JSON.parse(localStorage.getItem(keyFor(LS_CD, room)) || '[]')) }catch{} }, [room])
+  useEffect(()=>{ try{
+    const cks = JSON.parse(localStorage.getItem(keyFor(LS_CK, room)) || '[]')
+    setCkItems(cks); setDisplayClocks(cks)
+  }catch{} }, [room])
+  useEffect(()=>{ try{ setInit(JSON.parse(localStorage.getItem(keyFor(LS_INIT, room)) || '{"entries":[],"active":0,"round":1,"visible":true}')) }catch{} }, [room])
+
+  // persist (debounced) per stanza
+  useEffect(()=>{ scheduleSave(()=> {
+    localStorage.setItem(keyFor(LS_SCENE, room), JSON.stringify({ title:sceneTitle, text:sceneText, images:sceneImages }))
+  }) }, [sceneTitle, sceneText, sceneImages, room])
+
+  useEffect(()=>{ scheduleSave(()=> {
+    localStorage.setItem(keyFor(LS_CD, room), JSON.stringify(cdItems))
+  }) }, [cdItems, room])
+
+  useEffect(()=>{ scheduleSave(()=> {
+    localStorage.setItem(keyFor(LS_CK, room), JSON.stringify(ckItems))
+  }) }, [ckItems, room])
+
+  useEffect(()=>{ scheduleSave(()=> {
+    localStorage.setItem(keyFor(LS_INIT, room), JSON.stringify(init))
+  }) }, [init, room])
+
+  // salva anche quando cambi scheda o chiudi
+  useEffect(() => {
+    const persistNow = () => {
+      localStorage.setItem(keyFor(LS_SCENE, room), JSON.stringify({ title:sceneTitle, text:sceneText, images:sceneImages }))
+      localStorage.setItem(keyFor(LS_CD, room), JSON.stringify(cdItems))
+      localStorage.setItem(keyFor(LS_CK, room), JSON.stringify(ckItems))
+      localStorage.setItem(keyFor(LS_INIT, room), JSON.stringify(init))
+    }
+    const onVis = () => persistNow()
+    const onUnload = () => persistNow()
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('beforeunload', onUnload)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('beforeunload', onUnload)
+    }
+  }, [sceneTitle, sceneText, sceneImages, cdItems, ckItems, init, room])
 
   // ricezione messaggi WS (globale)
   useWSMessages((msg) => {
     if (msg.t === 'chat:msg') setMessages(m=>[...m, {nick: msg.nick, text: msg.text, ts: msg.ts}])
+
+    // SCENE: supporta nuovo e legacy
+    if (msg.t === 'DISPLAY_SCENE_STATE' || msg.t === 'DISPLAY_SCENE') {
+      setDisplayScene({ title: msg.title, text: msg.text, images: msg.images })
+    }
+
     if (msg.t === 'DISPLAY_CLOCKS_STATE' && Array.isArray(msg.clocks)) { setCkItems(msg.clocks); setDisplayClocks(msg.clocks) }
+    if (msg.t === 'DISPLAY_COUNTDOWN' && Array.isArray(msg.items)) setDisplayCountdown(msg.items)
+    if (msg.t === 'DISPLAY_INITIATIVE_STATE' && msg.initiative) setDisplayInitiative(msg.initiative)
   })
 
   const status = useMemo(() => {
