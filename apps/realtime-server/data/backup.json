@@ -3,9 +3,10 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "",
-      "text": "",
-      "images": []
+      "title": "ALLA",
+      "images": [
+        "https://i.pinimg.com/1200x/46/97/36/469736b5a2e58603e150a3c27b8f31f4.jpg"
+      ]
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",
@@ -28,7 +29,14 @@
     "demo": {
       "t": "DISPLAY_CLOCKS_STATE",
       "room": "demo",
-      "clocks": []
+      "clocks": [
+        {
+          "id": "vgph7xr",
+          "name": "MARCELLO MORTO",
+          "value": 2,
+          "max": 10
+        }
+      ]
     }
   },
   "initiativeByRoom": {
