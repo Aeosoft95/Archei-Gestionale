@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body { height: 100%; }
+body { @apply bg-zinc-950 text-zinc-100; }
+a { @apply text-teal-400 hover:underline; }
+.card { @apply bg-zinc-900/70 border border-zinc-800 rounded-2xl p-4 shadow; }
+.btn { @apply px-3 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white; }
+.input { @apply bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 w-full; }
+.label { @apply text-sm text-zinc-400; }

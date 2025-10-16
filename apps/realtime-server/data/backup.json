@@ -1,0 +1,48 @@
+{
+  "sceneByRoom": {
+    "demo": {
+      "t": "DISPLAY_SCENE_STATE",
+      "room": "demo",
+      "title": "palle",
+      "text": "tondissime 1",
+      "images": [
+        "https://i.pinimg.com/originals/2c/70/6a/2c706aabfccbd2731cf72cca6abb2213.gif"
+      ]
+    },
+    "CRISTO": {
+      "t": "DISPLAY_SCENE_STATE",
+      "room": "CRISTO",
+      "title": "palle",
+      "text": "grosse tonde",
+      "images": [
+        "https://media.tenor.com/PP8iPN16qTwAAAAM/huh-cat-huh-m4rtin.gif"
+      ]
+    }
+  },
+  "countdownByRoom": {
+    "demo": {
+      "t": "DISPLAY_COUNTDOWN",
+      "room": "demo",
+      "items": []
+    }
+  },
+  "clocksByRoom": {
+    "demo": {
+      "t": "DISPLAY_CLOCKS_STATE",
+      "room": "demo",
+      "clocks": []
+    }
+  },
+  "initiativeByRoom": {
+    "demo": {
+      "t": "DISPLAY_INITIATIVE_STATE",
+      "room": "demo",
+      "initiative": {
+        "entries": [],
+        "active": 0,
+        "round": 1,
+        "visible": true
+      }
+    }
+  }
+}

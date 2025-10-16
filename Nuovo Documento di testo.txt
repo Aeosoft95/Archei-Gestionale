@@ -1,0 +1,6 @@
+🧩 Riepilogo rapido
+Servizio	Porta	Avvio comando	URL locale	URL per i player
+Web App (Next.js)	3000	pnpm --filter @archei/web dev	http://localhost:3000
+	http://87.10.129.127:3000
+
+Realtime WS Server	8787	pnpm --filter @archei/realtime-server dev	ws://localhost:8787	ws://87.10.129.127:8787
