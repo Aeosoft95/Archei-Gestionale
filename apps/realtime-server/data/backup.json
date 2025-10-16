@@ -3,9 +3,9 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "ALLA",
+      "title": "Luigi delle bicocche",
       "images": [
-        "https://i.pinimg.com/1200x/46/97/36/469736b5a2e58603e150a3c27b8f31f4.jpg"
+        "https://i.pinimg.com/1200x/bb/a1/02/bba102364a6cd7919d4847b12f9b4943.jpg"
       ]
     },
     "CRISTO": {
@@ -31,10 +31,19 @@
       "room": "demo",
       "clocks": [
         {
-          "id": "vgph7xr",
-          "name": "MARCELLO MORTO",
+          "name": "Notte",
           "value": 2,
-          "max": 10
+          "max": 3
+        },
+        {
+          "name": "Pioggia",
+          "value": 2,
+          "max": 20
+        },
+        {
+          "name": "Frana",
+          "value": 0,
+          "max": 4
         }
       ]
     }
@@ -44,13 +53,7 @@
       "t": "DISPLAY_INITIATIVE_STATE",
       "room": "demo",
       "initiative": {
-        "entries": [
-          {
-            "id": "kqws4e",
-            "name": "stocazzo",
-            "init": 10
-          }
-        ],
+        "entries": [],
         "active": 0,
         "round": 1,
         "visible": true

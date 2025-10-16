@@ -19,6 +19,42 @@ const LS_INIT  = 'archei:gm:init'
 // helper: chiave per stanza
 const keyFor = (base: string, room?: string) => `${base}:${room || 'default'}`
 
+// ===== Helpers aggiunti =====
+function linkifyParts(text: string): (string | JSX.Element)[] {
+  // Riconosce http/https fino al primo spazio o ) o ]
+  const urlRe = /\bhttps?:\/\/[^\s)\]]+/gi
+  const parts: (string | JSX.Element)[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = urlRe.exec(text)) !== null) {
+    const start = m.index
+    if (start > last) parts.push(text.slice(last, start))
+    const url = m[0]
+    parts.push(
+      <a
+        key={`${start}-${url}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-indigo-400 underline break-words"
+      >
+        {url}
+      </a>
+    )
+    last = start + url.length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
+}
+
+// NPC: "NPC: Nome — Ritratto: URL" (accetta anche "-" e "--")
+const NPC_RE = /^NPC:\s*(.+?)\s*[—-]+\s*Ritratto:\s*(https?:\/\/\S+)/i
+function parseNpcLine(text: string): { name: string, portrait: string } | null {
+  const m = text.match(NPC_RE)
+  if (!m) return null
+  return { name: m[1].trim(), portrait: m[2].trim() }
+}
+
 export default function GmChatPage() {
   const { config, connected, connecting, error, openSetup, send } = useWS()
   const room = config?.room || 'default'
@@ -28,6 +64,9 @@ export default function GmChatPage() {
   const [total, setTotal] = useState(5)
   const [real, setReal] = useState(5)
   const [lastRoll, setLastRoll] = useState<any>(null)
+
+  // ===== Stato anteprima NPC =====
+  const [npcPreview, setNpcPreview] = useState<{ name: string; portrait: string } | null>(null)
 
   // scene (input + display)
   const [sceneTitle, setSceneTitle] = useState(''); const [sceneText, setSceneText] = useState(''); const [sceneImages, setSceneImages] = useState('')
@@ -122,6 +161,14 @@ export default function GmChatPage() {
     if (msg.t === 'DISPLAY_INITIATIVE_STATE' && msg.initiative) setDisplayInitiative(msg.initiative)
   })
 
+  // Quando arriva un nuovo messaggio, se è un NPC, aggiorna l’anteprima
+  useEffect(()=>{
+    const last = messages[messages.length - 1]
+    if (!last) return
+    const npc = parseNpcLine(last.text)
+    if (npc) setNpcPreview(npc)
+  }, [messages])
+
   const status = useMemo(() => {
     const color = connecting ? 'bg-yellow-500' : connected ? 'bg-green-500' : error ? 'bg-red-500' : 'bg-zinc-600'
     const label = connecting ? 'conn…' : connected ? 'online' : (error ? 'errore' : 'offline')
@@ -137,7 +184,6 @@ export default function GmChatPage() {
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     const nearBottom = distanceFromBottom < 80 // se sta leggendo in alto, non forziamo
     if (nearBottom) {
-      // piccolo delay per aspettare il render dei nuovi nodi
       requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
     }
   }, [messages])
@@ -459,16 +505,66 @@ export default function GmChatPage() {
           {/* Chat */}
           <div className="card flex flex-col max-h-[50vh]">
             <div className="font-semibold mb-2">Chat</div>
+
+            {/* ANTEPRIMA NPC */}
+            {npcPreview && (
+              <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
+                <div className="flex items-center gap-3 p-3">
+                  <div className="w-20 h-16 rounded-md overflow-hidden bg-zinc-800 shrink-0">
+                    <img src={npcPreview.portrait} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{npcPreview.name}</div>
+                    <a
+                      href={npcPreview.portrait}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-indigo-400 underline"
+                    >
+                      🖌️ Ritratto
+                    </a>
+                  </div>
+                  <button
+                    className="btn !bg-zinc-800 ml-auto"
+                    title="Chiudi anteprima"
+                    onClick={()=>setNpcPreview(null)}
+                  >✕</button>
+                </div>
+              </div>
+            )}
+
             <div ref={chatRef} className="flex-1 overflow-auto">
               {messages.length===0 ? (
                 <div className="text-sm text-zinc-500">Nessun messaggio.</div>
               ) : (
                 <div className="space-y-2">
-                  {messages.map((m,i)=>(
-                    <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2">
-                      <span className="text-teal-400">{m.nick}:</span> {m.text}
-                    </div>
-                  ))}
+                  {messages.map((m,i)=>{
+                    // Messaggio NPC con link formattato "🖌️ Ritratto"
+                    const npc = parseNpcLine(m.text)
+                    if (npc) {
+                      return (
+                        <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2">
+                          <span className="text-teal-400">{m.nick}:</span>{' '}
+                          <span className="font-semibold">NPC: {npc.name}</span>{' '}
+                          <a
+                            href={npc.portrait}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-400 underline"
+                          >
+                            🖌️ Ritratto
+                          </a>
+                        </div>
+                      )
+                    }
+                    // Messaggi normali con linkify
+                    return (
+                      <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2 break-words">
+                        <span className="text-teal-400">{m.nick}:</span>{' '}
+                        {linkifyParts(m.text)}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
