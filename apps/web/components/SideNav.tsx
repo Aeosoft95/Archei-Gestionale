@@ -35,8 +35,8 @@ export default function SideNav() {
           <Link href="/gm/editor-scene" className={linkCls('/gm/editor-scene')}>🎬 Editor Scene</Link>
           <Link href="/gm/editor-clock" className={linkCls('/gm/editor-clock')}>🕑 Editor Clock</Link>
 		  <Link href="/gm/npc" className={linkCls('/gm/npc')}>🤖 Generatore NPC</Link>
-		  <Link href="/gm/generatore-mostri" className={linkCls('/gm/editor-clock')}>👹 Generatore Mostri -Update</Link>
-		  <Link href="/gm/editor-clock" className={linkCls('/gm/editor-clock')}>📝 Note (GM) - Non disp</Link>
+		  <Link href="/gm/generatore-mostri" className={linkCls('/gm/editor-clock')}>👹 Generatore Mostri</Link>
+		  <Link href="/gm/editor-clock" className={linkCls('/gm/editor-clock')}>📝 Note (GM) - Update</Link>
 		  <Link href="/gm/editor-clock" className={linkCls('/gm/editor-clock')}>💁‍♂️ Gestione Player - Non disp</Link>
         </>
       )}

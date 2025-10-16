@@ -55,6 +55,14 @@ function parseNpcLine(text: string): { name: string, portrait: string } | null {
   return { name: m[1].trim(), portrait: m[2].trim() }
 }
 
+// MOSTRO: "Mostro: Nome — 🖼️ Ritratto: URL" oppure "🗡️ Mostro: Nome — Ritratto: URL"
+const MONSTER_RE = /(?:🗡️\s*)?Mostro:\s*(.+?)\s*[—-]+\s*(?:🖼️\s*)?Ritratto:\s*(https?:\/\/\S+)/i
+function parseMonsterLine(text: string): { name: string, portrait: string } | null {
+  const m = text.match(MONSTER_RE)
+  if (!m) return null
+  return { name: m[1].trim(), portrait: m[2].trim() }
+}
+
 export default function GmChatPage() {
   const { config, connected, connecting, error, openSetup, send } = useWS()
   const room = config?.room || 'default'
@@ -67,6 +75,8 @@ export default function GmChatPage() {
 
   // ===== Stato anteprima NPC =====
   const [npcPreview, setNpcPreview] = useState<{ name: string; portrait: string } | null>(null)
+  // ===== Stato anteprima MOSTRO =====
+  const [monsterPreview, setMonsterPreview] = useState<{ name: string; portrait: string } | null>(null)
 
   // scene (input + display)
   const [sceneTitle, setSceneTitle] = useState(''); const [sceneText, setSceneText] = useState(''); const [sceneImages, setSceneImages] = useState('')
@@ -161,12 +171,17 @@ export default function GmChatPage() {
     if (msg.t === 'DISPLAY_INITIATIVE_STATE' && msg.initiative) setDisplayInitiative(msg.initiative)
   })
 
-  // Quando arriva un nuovo messaggio, se è un NPC, aggiorna l’anteprima
+  // Quando arriva un nuovo messaggio, se è un NPC o MOSTRO, aggiorna le anteprime
   useEffect(()=>{
     const last = messages[messages.length - 1]
     if (!last) return
     const npc = parseNpcLine(last.text)
-    if (npc) setNpcPreview(npc)
+    if (npc) {
+      setNpcPreview(npc)
+      return
+    }
+    const mon = parseMonsterLine(last.text)
+    if (mon) setMonsterPreview(mon)
   }, [messages])
 
   const status = useMemo(() => {
@@ -305,7 +320,7 @@ export default function GmChatPage() {
             <div className="grid grid-cols-3 gap-2">
               <input className="input col-span-2" placeholder="Nome/Etichetta" value={ckName} onChange={e=>setCkName(e.target.value)} />
               <input className="input" type="number" placeholder="Max" value={ckMax} onChange={e=>setCkMax(parseInt(e.target.value||'0'))}/>
-              <input className="input" type="number" placeholder="Valore" value={ckVal} onChange={e=>setCkVal(parseInt(e.target.value||'0'))}/>
+              <input className="input" type="number" placeholder="Valore" value={ckVal} onChange={e=>setCdVal(parseInt(e.target.value||'0'))}/>
               <button className="btn" onClick={addClock}>+ Aggiungi</button>
             </div>
             <div className="space-y-2">
@@ -533,6 +548,33 @@ export default function GmChatPage() {
               </div>
             )}
 
+            {/* ANTEPRIMA MOSTRO */}
+            {monsterPreview && (
+              <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
+                <div className="flex items-center gap-3 p-3">
+                  <div className="w-20 h-16 rounded-md overflow-hidden bg-zinc-800 shrink-0">
+                    <img src={monsterPreview.portrait} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">🗡️ Mostro: {monsterPreview.name}</div>
+                    <a
+                      href={monsterPreview.portrait}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-indigo-400 underline"
+                    >
+                      🖌️ Ritratto
+                    </a>
+                  </div>
+                  <button
+                    className="btn !bg-zinc-800 ml-auto"
+                    title="Chiudi anteprima"
+                    onClick={()=>setMonsterPreview(null)}
+                  >✕</button>
+                </div>
+              </div>
+            )}
+
             <div ref={chatRef} className="flex-1 overflow-auto">
               {messages.length===0 ? (
                 <div className="text-sm text-zinc-500">Nessun messaggio.</div>
@@ -548,6 +590,24 @@ export default function GmChatPage() {
                           <span className="font-semibold">NPC: {npc.name}</span>{' '}
                           <a
                             href={npc.portrait}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-400 underline"
+                          >
+                            🖌️ Ritratto
+                          </a>
+                        </div>
+                      )
+                    }
+                    // Messaggio MOSTRO con link formattato "🖌️ Ritratto"
+                    const mon = parseMonsterLine(m.text)
+                    if (mon) {
+                      return (
+                        <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2">
+                          <span className="text-teal-400">{m.nick}:</span>{' '}
+                          <span className="font-semibold">🗡️ Mostro: {mon.name}</span>{' '}
+                          <a
+                            href={mon.portrait}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-indigo-400 underline"
