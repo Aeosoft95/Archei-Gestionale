@@ -3,10 +3,10 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "palle",
-      "text": "tondissime 1",
+      "title": "asdasdasdafsdfa",
+      "text": "asdasd",
       "images": [
-        "https://i.pinimg.com/originals/2c/70/6a/2c706aabfccbd2731cf72cca6abb2213.gif"
+        "https://wow.zamimg.com/uploads/screenshots/small/629956.jpg"
       ]
     },
     "CRISTO": {
@@ -30,7 +30,14 @@
     "demo": {
       "t": "DISPLAY_CLOCKS_STATE",
       "room": "demo",
-      "clocks": []
+      "clocks": [
+        {
+          "id": "0feacmp",
+          "name": "adasdasda",
+          "value": 4,
+          "max": 4
+        }
+      ]
     }
   },
   "initiativeByRoom": {
