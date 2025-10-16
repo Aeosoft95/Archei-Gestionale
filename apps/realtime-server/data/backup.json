@@ -2,7 +2,10 @@
   "sceneByRoom": {
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
-      "room": "demo"
+      "room": "demo",
+      "title": "",
+      "text": "",
+      "images": []
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",

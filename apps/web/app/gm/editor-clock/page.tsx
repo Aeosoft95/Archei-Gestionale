@@ -18,7 +18,13 @@ type ClockItem = {
   compact?: boolean
 }
 
-const LS_CK = 'archei:gm:clocks'
+type PersistState = {
+  items: ClockItem[]
+  autoPublish: boolean
+  followDisplay: boolean
+}
+
+const BASE_KEY = 'archei:gm:clocks:v2'
 const uid = () => Math.random().toString(36).slice(2, 9)
 const clamp = (v:number, min:number, max:number) => Math.max(min, Math.min(max, v))
 
@@ -36,6 +42,10 @@ const THEMES: Record<ThemeKey, { ring: string; track: string; glow: string }> = 
 export default function GMClockEditorPage() {
   const { config, connected, connecting, error, openSetup, send } = useWS()
 
+  // Chiave LS per stanza (default se mancante)
+  const lsKey = useMemo(() => `${BASE_KEY}:${config?.room || 'default'}`, [config?.room])
+
+  // Stato
   const [items, setItems] = useState<ClockItem[]>([])
   const [name, setName] = useState('')
   const [val, setVal] = useState(0)
@@ -55,25 +65,54 @@ export default function GMClockEditorPage() {
 
   const [lastUpdatedId, setLastUpdatedId] = useState<string | null>(null)
 
+  // ---- Boot + restore per stanza ----
+  useEffect(() => { localStorage.setItem('archei:role','gm') }, [])
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(LS_CK) || '[]') as ClockItem[]
-      if (Array.isArray(saved)) {
-        setItems(saved.map(n => ({
-          visible: true,
-          nextId: null,
-          icon: '🕒',
-          theme: 'indigo',
-          effect: 'none',
-          compact: false,
-          ...n
+      const saved: PersistState | null = JSON.parse(localStorage.getItem(lsKey) || 'null')
+      if (saved && Array.isArray(saved.items)) {
+        setItems(saved.items.map(n => ({
+          visible: true, nextId: null, icon: '🕒', theme: 'indigo', effect: 'none', compact: false, ...n
         })))
+        setAutoPublish(saved.autoPublish ?? true)
+        setFollowDisplay(saved.followDisplay ?? true)
+      } else {
+        setItems([])
+        setAutoPublish(true)
+        setFollowDisplay(true)
       }
-    } catch {}
-    localStorage.setItem('archei:role', 'gm')
-  }, [])
-  useEffect(() => { localStorage.setItem(LS_CK, JSON.stringify(items)) }, [items])
+    } catch {
+      setItems([]); setAutoPublish(true); setFollowDisplay(true)
+    }
+  }, [lsKey])
 
+  // ---- Persistenza (debounce + eventi scheda) ----
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const persistAll = useMemo(() => {
+    return () => {
+      const payload: PersistState = { items, autoPublish, followDisplay }
+      localStorage.setItem(lsKey, JSON.stringify(payload))
+    }
+  }, [items, autoPublish, followDisplay, lsKey])
+
+  useEffect(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => persistAll(), 300)
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
+  }, [items, autoPublish, followDisplay, persistAll])
+
+  useEffect(() => {
+    const onVis = () => persistAll()
+    const onUnload = () => persistAll()
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('beforeunload', onUnload)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('beforeunload', onUnload)
+    }
+  }, [persistAll])
+
+  // ---- Sync da Display (facoltativo) ----
   useWSMessages((msg) => {
     if (msg.t === 'DISPLAY_CLOCKS_STATE' && Array.isArray(msg.clocks)) {
       if (!followDisplay) return
@@ -95,6 +134,7 @@ export default function GMClockEditorPage() {
     }
   })
 
+  // ---- Pubblica
   function visibleFrom(list: ClockItem[]) {
     return list.filter(i => i.visible).map(({ id, name, value, max }) => ({ id, name, value, max }))
   }
@@ -109,7 +149,7 @@ export default function GMClockEditorPage() {
   }
   function onChanged(next?: ClockItem[]) { if (autoPublish) publishFrom(next) }
 
-  // reset solo se concatenato; altrimenti cappo a max
+  // ---- Concatenazioni
   function propagateChains(list: ClockItem[]): ClockItem[] {
     const next = list.map(x => ({ ...x }))
     const idxById = new Map(next.map((c,i)=>[c.id,i]))
@@ -140,6 +180,7 @@ export default function GMClockEditorPage() {
     return next
   }
 
+  // ---- CRUD
   function addClock(){
     if (!name.trim()) return
     const it: ClockItem = {
@@ -225,6 +266,7 @@ export default function GMClockEditorPage() {
   }
   function sortByProgress(){ setItems(prev => [...prev].sort((a,b)=>(b.value/b.max)-(a.value/a.max))) }
 
+  // ---- UI helpers
   const status = useMemo(() => {
     const color = connecting ? 'bg-yellow-500' : connected ? 'bg-green-500' : error ? 'bg-red-500' : 'bg-zinc-600'
     const label = connecting ? 'conn…' : connected ? 'online' : error ? 'errore' : 'offline'
@@ -341,9 +383,7 @@ export default function GMClockEditorPage() {
                           className="absolute right-2 top-2 text-xs text-zinc-400 hover:text-zinc-200"
                           title="Mostra controlli"
                           onClick={()=>upd(i,{compact:false})}
-                        >
-                          ✎
-                        </button>
+                        >✎</button>
 
                         <div className="mb-3 font-medium truncate">{c.name}</div>
                         <div className="flex items-center justify-center">
