@@ -1,0 +1,160 @@
+'use client'
+import { useEffect, useMemo, useRef } from 'react'
+import { useWS } from '@/components/ws/WSProvider'
+
+/** Raccoglie TUTTO ciò che è nel localStorage con prefisso `archei:` */
+function collectArcheiState(): Record<string, any> {
+  const dump: Record<string, any> = {}
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k) continue
+      if (!k.startsWith('archei:')) continue
+      const raw = localStorage.getItem(k)
+      if (raw == null) continue
+      try {
+        dump[k] = JSON.parse(raw)
+      } catch {
+        dump[k] = raw
+      }
+    }
+  } catch {}
+  return dump
+}
+
+function downloadJSON(obj: any, filename: string) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+async function restoreFromBackupFile(file: File) {
+  const text = await file.text()
+  const data = JSON.parse(text)
+  if (!data || typeof data !== 'object' || !data.payload) {
+    alert('Backup non valido.')
+    return
+  }
+  const payload = data.payload as Record<string, any>
+  Object.entries(payload).forEach(([k, v]) => {
+    try {
+      const val = (typeof v === 'string') ? v : JSON.stringify(v)
+      localStorage.setItem(k, val)
+    } catch {}
+  })
+  alert('Ripristino completato! La pagina verrà ricaricata.')
+  location.reload()
+}
+
+function timestampName() {
+  const d = new Date()
+  const pad = (n:number)=> String(n).padStart(2,'0')
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`
+}
+
+export default function SessionControls() {
+  const { config } = useWS()
+  const room = useMemo(()=> config?.room || 'default', [config?.room])
+  const fileInputRef = useRef<HTMLInputElement|null>(null)
+
+  // ====== AUTO-BACKUP OGNI ~10 MINUTI ======
+  useEffect(() => {
+    // salva subito una prima copia al mount
+    try {
+      const payload = collectArcheiState()
+      const meta = { createdAt: new Date().toISOString(), room, app: 'Archei Companion', version: 1 }
+      const backup = { meta, payload }
+      localStorage.setItem('archei:backup:auto', JSON.stringify(backup))
+    } catch {}
+
+    const id = setInterval(() => {
+      try {
+        const payload = collectArcheiState()
+        const meta = { createdAt: new Date().toISOString(), room, app: 'Archei Companion', version: 1 }
+        const backup = { meta, payload }
+        localStorage.setItem('archei:backup:auto', JSON.stringify(backup))
+      } catch {}
+    }, 10 * 60 * 1000) // 10 minuti
+
+    return () => clearInterval(id)
+  }, [room])
+
+  function handleExportSession() {
+    // raccogli ora tutto e scarica
+    const payload = collectArcheiState()
+    const meta = {
+      createdAt: new Date().toISOString(),
+      room,
+      origin: location.origin,
+      path: location.pathname,
+      app: 'Archei Companion',
+      version: 1,
+    }
+    const backup = { meta, payload }
+    const fname = `archei-backup-${room}-${timestampName()}.json`
+    downloadJSON(backup, fname)
+
+    // opzionale: chiedi di svuotare i dati
+    setTimeout(() => {
+      if (confirm('Backup scaricato. Vuoi svuotare i dati locali per chiudere la sessione?')) {
+        try {
+          Object.keys(payload).forEach(k => localStorage.removeItem(k)) // solo chiavi archei:*
+          alert('Sessione svuotata. Potrai ripristinare dal file scaricato.')
+        } catch {}
+      }
+    }, 200)
+  }
+
+  function handleImportClick() {
+    fileInputRef.current?.click()
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      await restoreFromBackupFile(file)
+    } catch (err:any) {
+      alert(`Ripristino fallito: ${err?.message || 'errore sconosciuto'}`)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs uppercase tracking-wider text-zinc-400/80">Sessione</div>
+      <div className="flex flex-col gap-2">
+        <button
+          className="btn !bg-red-600 hover:!bg-red-700"
+          onClick={handleExportSession}
+          title="Scarica backup completo e (opzionalmente) svuota i dati locali"
+        >
+          Chiudi Sessione
+        </button>
+        <button
+          className="btn"
+          onClick={handleImportClick}
+          title="Ripristina un backup (.json) precedentemente scaricato"
+        >
+          Ripristina backup…
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          className="hidden"
+          onChange={handleImportFile}
+        />
+        <div className="text-[11px] text-zinc-400">
+          Auto-backup ~ogni 10 min (salvato in locale). Usa “Chiudi Sessione” per scaricare il file.
+        </div>
+      </div>
+    </div>
+  )
+}

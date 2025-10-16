@@ -29,23 +29,7 @@
     "demo": {
       "t": "DISPLAY_CLOCKS_STATE",
       "room": "demo",
-      "clocks": [
-        {
-          "name": "Notte",
-          "value": 2,
-          "max": 3
-        },
-        {
-          "name": "Pioggia",
-          "value": 2,
-          "max": 20
-        },
-        {
-          "name": "Frana",
-          "value": 0,
-          "max": 4
-        }
-      ]
+      "clocks": []
     }
   },
   "initiativeByRoom": {
