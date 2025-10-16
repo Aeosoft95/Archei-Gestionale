@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      openai:
+        specifier: ^6.4.0
+        version: 6.4.0(ws@8.18.3)
     devDependencies:
       '@types/ws':
         specifier: ^8.18.1
@@ -614,6 +618,18 @@ packages:
   object-hash@3.0.0:
     resolution: {integrity: sha512-RSn9F68PjH9HqtltsSnqYC1XXoWe9Bju5+213R98cNGttag9q9yAOTzdbsqvIa7aNm5WffBZFpWYr2aWrklWAw==}
     engines: {node: '>= 6'}
+
+  openai@6.4.0:
+    resolution: {integrity: sha512-vSoVBRTPMgg3oSaoHIGfbYM2zwGN0D4F2aiNHMeu1lZHFOwfJMAF0X110HDdedYvcsIo578ujQ11WL5kP687Cw==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
 
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
@@ -1306,6 +1322,10 @@ snapshots:
   object-assign@4.1.1: {}
 
   object-hash@3.0.0: {}
+
+  openai@6.4.0(ws@8.18.3):
+    optionalDependencies:
+      ws: 8.18.3
 
   package-json-from-dist@1.0.1: {}
 

@@ -3,13 +3,9 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "Aiuto",
-      "text": "Aiuto",
-      "images": [
-        "https://static2.iodonna.it/wp-content/uploads/2019/01/fantaghiro-torna-su-netflix-1139299_w767h767c1cx628cy628.jpg?v=1019781"
-      ],
-      "bannerEnabled": true,
-      "bannerColor": "#b77324"
+      "title": "",
+      "text": "",
+      "images": []
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",

@@ -12,7 +12,7 @@ export default function GmDashboard() {
     { href: '/gm/chat', label: 'Chat (GM)', icon: '🗨️' },
     { href: '/gm/editor-clock', label: 'Editor Clock', icon: '⏲️' },
     { href: '/gm/editor-scene', label: 'Editor Scene', icon: '🎬' },
-    { href: '/gm/generatore-npc', label: 'Generatore NPC', icon: '🧑‍🤝‍🧑' },
+    { href: '/gm/npc', label: 'Generatore NPC', icon: '🧑‍🤝‍🧑' },
     { href: '/gm/monsters', label: 'Generatore Mostri', icon: '🐉' },
     { href: '/gm/notes', label: 'Note', icon: '🗒️' },
   ]
