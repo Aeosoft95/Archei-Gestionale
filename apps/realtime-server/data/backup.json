@@ -3,10 +3,10 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "Luigi delle bicocche",
-      "images": [
-        "https://i.pinimg.com/1200x/bb/a1/02/bba102364a6cd7919d4847b12f9b4943.jpg"
-      ]
+      "title": "Nuova scena",
+      "images": [],
+      "bannerEnabled": true,
+      "bannerColor": "#0ea5e9"
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",
