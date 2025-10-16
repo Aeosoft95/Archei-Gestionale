@@ -11,7 +11,7 @@ export default function GmDashboard() {
   const cards = [
     { href: '/gm/chat', label: 'Chat (GM)', icon: '🗨️' },
     { href: '/gm/editor-clock', label: 'Editor Clock', icon: '⏲️' },
-    { href: '/gm/scene', label: 'Scene', icon: '🎬' },
+    { href: '/gm/editor-scene', label: 'Editor Scene', icon: '🎬' },
     { href: '/gm/npc', label: 'Generatore NPC', icon: '🧑‍🤝‍🧑' },
     { href: '/gm/monsters', label: 'Generatore Mostri', icon: '🐉' },
     { href: '/gm/notes', label: 'Note', icon: '🗒️' },

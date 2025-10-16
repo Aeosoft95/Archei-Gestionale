@@ -2,12 +2,7 @@
   "sceneByRoom": {
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
-      "room": "demo",
-      "title": "asdasdasdafsdfa",
-      "text": "asdasd",
-      "images": [
-        "https://wow.zamimg.com/uploads/screenshots/small/629956.jpg"
-      ]
+      "room": "demo"
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",
@@ -30,14 +25,7 @@
     "demo": {
       "t": "DISPLAY_CLOCKS_STATE",
       "room": "demo",
-      "clocks": [
-        {
-          "id": "0feacmp",
-          "name": "adasdasda",
-          "value": 4,
-          "max": 4
-        }
-      ]
+      "clocks": []
     }
   },
   "initiativeByRoom": {
