@@ -31,7 +31,7 @@ export default function GmChatPage() {
 
   // scene (input + display)
   const [sceneTitle, setSceneTitle] = useState(''); const [sceneText, setSceneText] = useState(''); const [sceneImages, setSceneImages] = useState('')
-  const [displayScene, setDisplayScene] = useState<{title?:string; text?:string; images?:string[]}>({})
+  const [displayScene, setDisplayScene] = useState<{title?:string; text?:string; images?:string[]; bannerEnabled?:boolean; bannerColor?:string}>({})
 
   // countdown / clocks
   const [cdItems, setCdItems] = useState<CountdownItem[]>([])
@@ -106,9 +106,15 @@ export default function GmChatPage() {
   useWSMessages((msg) => {
     if (msg.t === 'chat:msg') setMessages(m=>[...m, {nick: msg.nick, text: msg.text, ts: msg.ts}])
 
-    // SCENE: supporta nuovo e legacy
+    // SCENE: supporta nuovo e legacy + banner
     if (msg.t === 'DISPLAY_SCENE_STATE' || msg.t === 'DISPLAY_SCENE') {
-      setDisplayScene({ title: msg.title, text: msg.text, images: msg.images })
+      setDisplayScene({
+        title: msg.title,
+        text: msg.text,
+        images: msg.images,
+        bannerEnabled: msg.bannerEnabled,
+        bannerColor: msg.bannerColor
+      })
     }
 
     if (msg.t === 'DISPLAY_CLOCKS_STATE' && Array.isArray(msg.clocks)) { setCkItems(msg.clocks); setDisplayClocks(msg.clocks) }
@@ -122,10 +128,33 @@ export default function GmChatPage() {
     return <div className="flex items-center gap-2 text-xs text-zinc-400"><div className={`w-2.5 h-2.5 rounded-full ${color}`} />{label}</div>
   }, [connected, connecting, error])
 
+  // ===== Autoscroll chat =====
+  const chatRef = useRef<HTMLDivElement | null>(null)
+  // Scorri in fondo quando arrivano messaggi (solo se l'utente è già vicino al fondo)
+  useEffect(() => {
+    const el = chatRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const nearBottom = distanceFromBottom < 80 // se sta leggendo in alto, non forziamo
+    if (nearBottom) {
+      // piccolo delay per aspettare il render dei nuovi nodi
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
+    }
+  }, [messages])
+  // All'apertura pagina porta in fondo
+  useEffect(() => {
+    const el = chatRef.current
+    if (!el) return
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
+  }, [])
+
   // azioni
   function sendChat(text:string){
     if (!config) return
     send({ t:'chat:msg', room: config.room, nick: config.nick, text, ts:Date.now(), channel:'global' })
+    // autoscroll immediato quando invii tu
+    const el = chatRef.current
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
   }
   function roll(){
     const res = archeiRoll(total, real)
@@ -341,8 +370,29 @@ export default function GmChatPage() {
             {/* Scena */}
             {(displayScene.title || displayScene.text || (displayScene.images?.length)) ? (
               <div className="space-y-2">
-                {displayScene.images?.[0] && <img src={displayScene.images[0]} alt="" className="w-full h-40 md:h-56 object-cover rounded-xl border border-zinc-800" />}
-                {displayScene.title && <div className="text-xl font-bold">{displayScene.title}</div>}
+                {/* Banner con TITOLO dentro */}
+                {displayScene.bannerEnabled && displayScene.bannerColor && (
+                  <div className="rounded-xl overflow-hidden border border-zinc-800">
+                    <div className="px-4 py-3" style={{ backgroundColor: displayScene.bannerColor }}>
+                      {displayScene.title && (
+                        <div className="text-lg font-bold text-white drop-shadow-sm">
+                          {displayScene.title}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {displayScene.images?.[0] && (
+                  <img
+                    src={displayScene.images[0]}
+                    alt=""
+                    className="w-full h-40 md:h-56 object-cover rounded-xl border border-zinc-800"
+                  />
+                )}
+                {/* Se NON c'è banner, mostra il titolo normale sotto */}
+                {!displayScene.bannerEnabled && displayScene.title && (
+                  <div className="text-xl font-bold">{displayScene.title}</div>
+                )}
                 {displayScene.text && <div className="whitespace-pre-wrap text-zinc-200">{displayScene.text}</div>}
               </div>
             ) : (<div className="text-sm text-zinc-500">Nessuna scena attiva.</div>)}
@@ -409,7 +459,7 @@ export default function GmChatPage() {
           {/* Chat */}
           <div className="card flex flex-col max-h-[50vh]">
             <div className="font-semibold mb-2">Chat</div>
-            <div className="flex-1 overflow-auto">
+            <div ref={chatRef} className="flex-1 overflow-auto">
               {messages.length===0 ? (
                 <div className="text-sm text-zinc-500">Nessun messaggio.</div>
               ) : (
