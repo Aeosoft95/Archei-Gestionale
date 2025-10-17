@@ -3,10 +3,8 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "Nuova scena",
-      "images": [],
-      "bannerEnabled": true,
-      "bannerColor": "#0ea5e9"
+      "title": "Non ho una foto :(",
+      "text": "Triste"
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",
@@ -29,7 +27,14 @@
     "demo": {
       "t": "DISPLAY_CLOCKS_STATE",
       "room": "demo",
-      "clocks": []
+      "clocks": [
+        {
+          "id": "cp02ebr",
+          "name": "entro quanto mi faccio fuori",
+          "value": 8,
+          "max": 8
+        }
+      ]
     }
   },
   "initiativeByRoom": {
@@ -37,8 +42,24 @@
       "t": "DISPLAY_INITIATIVE_STATE",
       "room": "demo",
       "initiative": {
-        "entries": [],
-        "active": 0,
+        "entries": [
+          {
+            "id": "emd5xd",
+            "name": "dio",
+            "init": 10
+          },
+          {
+            "id": "5vf864",
+            "name": "cane",
+            "init": 10
+          },
+          {
+            "id": "mbxkak",
+            "name": "porco",
+            "init": 10
+          }
+        ],
+        "active": 1,
         "round": 1,
         "visible": true
       }
