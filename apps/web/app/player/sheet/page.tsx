@@ -72,6 +72,80 @@ type Ability = {
   desc?: string
 }
 
+// ===== Incantesimi & Preghiere =====
+type SpellTier = 'I'|'II'|'III'|'IV'
+type SpellKind = 'Incantesimo'|'Preghiera'
+type SpellEntry = {
+  id: string
+  name: string
+  kind: SpellKind
+  tier: SpellTier
+  school?: string
+  action?: string
+  range?: string
+  duration?: string
+  foc?: string
+  text: string
+}
+type LearnedSpell = { id: string; refId: string; notes?: string }
+
+// Mini-database essenziale per la ricerca rapida (puoi ampliare liberamente)
+const SPELLS_DB: SpellEntry[] = [
+  // === TIER I — Incantesimi Minori (FOC 1) ===
+  { id:'sp-dardo-energetico', name:'Dardo Energetico', kind:'Incantesimo', tier:'I',
+    school:'Evocazione', action:'1 azione', range:'10 m', duration:'Immediata', foc:'FOC 1',
+    text:'Raggio astrale infligge 1 segmento a un bersaglio visibile.' },
+  { id:'sp-scudo-luce', name:'Scudo di Luce', kind:'Incantesimo', tier:'I',
+    school:'Abiurazione', action:'1 azione', range:'6 m', duration:'1 turno', foc:'FOC 1',
+    text:'+1 DIF a te o un alleato finché dura; acceca lievemente quando svanisce.' },
+  { id:'sp-nebbia-coprente', name:'Nebbia Coprente', kind:'Incantesimo', tier:'I',
+    school:'Conjuring Naturale', action:'1 azione', range:'9 m', duration:'2 turni', foc:'FOC 1',
+    text:'Foschia in area ~3 m che fornisce copertura leggera.' },
+  { id:'sp-benedizione-lieve', name:'Benedizione Lieve', kind:'Incantesimo', tier:'I',
+    school:'Invocazione Spirituale', action:'1 azione', range:'6 m', duration:'1 turno', foc:'FOC 1',
+    text:'+1 dado teorico alla prossima prova/attacco di un alleato.' },
+  { id:'sp-mano-psichica', name:'Mano Psichica', kind:'Incantesimo', tier:'I',
+    school:'Telecinesi Mentale', action:'1 azione', range:'12 m', duration:'1 turno', foc:'FOC 1',
+    text:'Muovi/spingi piccoli oggetti a distanza.' },
+  { id:'sp-cura-minore', name:'Cura Minore', kind:'Incantesimo', tier:'I',
+    school:'Invocazione Spirituale', action:'1 azione', range:'6 m', duration:'Immediata', foc:'FOC 1',
+    text:'Ripristina 1 HP o ½ segmento di danno.' },
+  { id:'sp-sussurro-ipnotico', name:'Sussurro Ipnotico', kind:'Incantesimo', tier:'I',
+    school:'Illusione Mentale', action:'1 azione', range:'9 m', duration:'1 turno', foc:'FOC 1',
+    text:'Il bersaglio perde la reazione nel turno successivo.' },
+  { id:'sp-radici-vorticanti', name:'Radici Vorticanti', kind:'Incantesimo', tier:'I',
+    school:'Evocazione Naturale', action:'1 azione', range:'9 m', duration:'2 turni', foc:'FOC 1',
+    text:'Rallenta di 2 m e crea terreno difficile.' },
+  { id:'sp-sigillo-protettivo', name:'Sigillo Protettivo', kind:'Incantesimo', tier:'I',
+    school:'Abiurazione', action:'Reazione', range:'6 m', duration:'Immediata', foc:'FOC 1',
+    text:'Riduci un colpo di ½ segmento.' },
+  { id:'sp-doppio-passo', name:'Doppio Passo', kind:'Incantesimo', tier:'I',
+    school:'Traslocazione Mentale', action:'1 azione', range:'Personale', duration:'Immediata', foc:'FOC 1',
+    text:'Teletrasporto di ~2 m.' },
+
+  // === Esempi Preghiere (Tier I–II) ===
+  { id:'pr-benedizione-minore', name:'Benedizione Minore', kind:'Preghiera', tier:'I',
+    action:'Rito breve', foc:'FOC 1', duration:'1 scena',
+    text:'+1d6 ai tiri di un alleato per una scena (coerente con la fede).' },
+  { id:'pr-luce-dei-custodi', name:'Luce dei Custodi', kind:'Preghiera', tier:'I',
+    action:'Rito breve', foc:'FOC 1', duration:'Variabile',
+    text:'Aura luminosa che allontana creature oscure.' },
+  { id:'pr-respiro-di-luce', name:'Respiro di Luce', kind:'Preghiera', tier:'II',
+    action:'Invocazione', foc:'FOC 2', duration:'Immediata',
+    text:'Recupera 2 segmenti HP o DIF su un bersaglio.' },
+
+  // === Alto Tier (miracoli e grandi magie) ===
+  { id:'pr-purificazione-totale', name:'Purificazione Totale', kind:'Preghiera', tier:'IV',
+    action:'1 azione', range:'12 m', duration:'Immediata', foc:'Alto',
+    text:'Rimuove maledizioni e Clock di Corruzione nella scena.' },
+  { id:'pr-resurrezione-eterna', name:'Resurrezione Eterna', kind:'Preghiera', tier:'IV',
+    action:'1 ora', range:'Contatto', duration:'Immediata', foc:'Molto alto',
+    text:'Riporta in vita con costo severo (−3 FOC max o −1 livello).' },
+  { id:'sp-rinascita-primordiale', name:'Rinascita Primordiale', kind:'Incantesimo', tier:'IV',
+    school:'Evocazione Naturale', action:'1 azione', range:'12 m', duration:'3 turni', foc:'Alto',
+    text:'Tutti gli alleati +2 HP e −1 segmento ai danni subiti per 3 turni.' },
+]
+
 type PCData = {
   ident: {
     name: string
@@ -89,6 +163,8 @@ type PCData = {
   armors: Armor[]
   current: { hp: number; difMod?: number }
   notes?: string
+  // AGGIUNTA: incantesimi/preghiere salvati dal PG
+  spells?: LearnedSpell[]
 }
 
 const EMPTY: PCData = {
@@ -101,6 +177,7 @@ const EMPTY: PCData = {
   armors: [],
   current: { hp: 10, difMod: 0 },
   notes: '',
+  spells: [],
 }
 
 // ================== Helpers ==================
@@ -200,6 +277,11 @@ export default function PlayerSheetPage() {
   const [saving, setSaving] = useState(false)
   const [data, setData] = useState<PCData>(EMPTY)
 
+  // Stato locale per ricerca incantesimi
+  const [spellQuery, setSpellQuery] = useState('')
+  const [spellKind, setSpellKind] = useState<'all'|SpellKind>('all')
+  const [spellTier, setSpellTier] = useState<'all'|SpellTier>('all')
+
   // Carica dati
   useEffect(() => {
     let alive = true
@@ -252,6 +334,8 @@ export default function PlayerSheetPage() {
         if (!inData.ap) inData.ap = { total: 0, spent: 0 }
         if (!inData.current) inData.current = { hp: derivedHP(inData.ident.level||1, inData.attrs.COS||0), difMod: 0 }
         if (typeof inData.current.difMod !== 'number') inData.current.difMod = 0
+        // spells opzionale
+        if (!Array.isArray(inData.spells)) inData.spells = []
         setData(inData)
       } finally {
         setLoading(false)
@@ -278,6 +362,22 @@ export default function PlayerSheetPage() {
   const difDice = defenseDiceFromDIF(difFinal)
 
   const equippedWeapons = data.weapons.filter(w => w.equipped)
+
+  // Filtraggio incantesimi/preghiere
+  const filteredSpells = useMemo(() => {
+    let list = SPELLS_DB
+    if (spellKind !== 'all') list = list.filter(s => s.kind === spellKind)
+    if (spellTier !== 'all') list = list.filter(s => s.tier === spellTier)
+    const q = spellQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        (s.text?.toLowerCase() ?? '').includes(q) ||
+        (s.school?.toLowerCase() ?? '').includes(q)
+      )
+    }
+    return list
+  }, [spellKind, spellTier, spellQuery])
 
   async function save() {
     setSaving(true)
@@ -315,6 +415,11 @@ export default function PlayerSheetPage() {
           useOverride: !!a.useOverride,
         })),
         abilities: data.abilities.map(ab => ({ ...ab, rank: clamp(ab.rank, 0, 4) as Ability['rank'] })),
+        spells: Array.isArray(data.spells) ? data.spells.map(s => ({
+          id: s.id || uid(),
+          refId: s.refId,
+          notes: s.notes || ''
+        })) : [],
       }
       const res = await fetch('/api/player/sheet', {
         method: 'POST',
@@ -857,12 +962,117 @@ export default function PlayerSheetPage() {
                 </details>
               </section>
 
-              {/* Incantesimi & Preghiere (placeholder) */}
+              {/* Incantesimi & Preghiere */}
               <section className="card">
-                <details>
+                <details open>
                   <summary className="font-semibold cursor-pointer select-none">Incantesimi & Preghiere</summary>
                   <div className="text-sm text-zinc-400 mt-2">
-                    Nel prossimo step aggiungeremo il tool di ricerca/aggiunta dal manuale con tutte le schede.
+                    Nel prossimo step aggiungeremo il tool completo dal manuale; intanto puoi cercare e aggiungere rapidamente da questo estratto.
+                  </div>
+
+                  {/* Barra ricerca */}
+                  <div className="grid md:grid-cols-4 gap-2 mt-3">
+                    <div className="md:col-span-2">
+                      <div className="label">Cerca per nome o testo</div>
+                      <input
+                        className="input"
+                        placeholder="es. Dardo, Benedizione, Purificazione…"
+                        value={spellQuery}
+                        onChange={e=>setSpellQuery(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <div className="label">Tipo</div>
+                      <select className="input" value={spellKind} onChange={e=>setSpellKind(e.target.value as any)}>
+                        <option value="all">Tutti</option>
+                        <option value="Incantesimo">Incantesimi</option>
+                        <option value="Preghiera">Preghiere</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div className="label">Tier</div>
+                      <select className="input" value={spellTier} onChange={e=>setSpellTier(e.target.value as any)}>
+                        <option value="all">Tutti</option>
+                        <option value="I">I</option>
+                        <option value="II">II</option>
+                        <option value="III">III</option>
+                        <option value="IV">IV</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Risultati */}
+                  <div className="mt-3 space-y-2">
+                    {filteredSpells.length === 0 && (
+                      <div className="text-sm text-zinc-500">Nessun risultato.</div>
+                    )}
+                    {filteredSpells.map(s=>{
+                      const already = (data.spells||[]).some(ls => ls.refId === s.id)
+                      return (
+                        <div key={s.id} className="rounded-lg border border-zinc-800 p-2">
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0">
+                              <div className="font-semibold truncate">{s.name}</div>
+                              <div className="text-xs text-zinc-400">
+                                {s.kind} • Tier {s.tier}{s.school ? ` • ${s.school}` : ''}{s.foc ? ` • ${s.foc}` : ''}
+                                {s.action ? ` • ${s.action}` : ''}{s.range ? ` • ${s.range}` : ''}{s.duration ? ` • ${s.duration}` : ''}
+                              </div>
+                            </div>
+                            <button
+                              className={`btn ${already?'!bg-zinc-800 cursor-not-allowed':''}`}
+                              disabled={already}
+                              onClick={()=>setData(d=>({
+                                ...d,
+                                spells:[...(d.spells||[]), { id: uid(), refId: s.id, notes:'' }]
+                              }))}
+                            >
+                              {already ? '✓ Aggiunto' : '+ Aggiungi'}
+                            </button>
+                          </div>
+                          <div className="text-sm mt-1">{s.text}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Selezionati */}
+                  <div className="border-t border-zinc-800 mt-3 pt-3">
+                    <div className="font-semibold mb-2">Selezionati</div>
+                    {(data.spells||[]).length===0 && <div className="text-sm text-zinc-500">Nessun incantesimo o preghiera selezionato.</div>}
+                    <div className="space-y-2">
+                      {(data.spells||[]).map(s=>{
+                        const ref = SPELLS_DB.find(x => x.id === s.refId)
+                        if (!ref) return null
+                        return (
+                          <div key={s.id} className="rounded-lg border border-zinc-800 p-2">
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0">
+                                <div className="font-semibold truncate">{ref.name}</div>
+                                <div className="text-xs text-zinc-400">
+                                  {ref.kind} • Tier {ref.tier}{ref.school ? ` • ${ref.school}` : ''}{ref.foc ? ` • ${ref.foc}` : ''}
+                                </div>
+                              </div>
+                              <button className="btn !bg-zinc-800" onClick={()=>setData(d=>({
+                                ...d,
+                                spells:(d.spells||[]).filter(x=>x.id!==s.id)
+                              }))}>
+                                Rimuovi
+                              </button>
+                            </div>
+                            <div className="label mt-2">Note</div>
+                            <input
+                              className="input"
+                              placeholder="Annotazioni rapide (variante, focus, dominio, ecc.)"
+                              value={s.notes||''}
+                              onChange={e=>setData(d=>({
+                                ...d,
+                                spells:(d.spells||[]).map(x=>x.id===s.id?{...x, notes:e.target.value}:x)
+                              }))}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 </details>
               </section>
