@@ -8,7 +8,25 @@ export default function SideNav() {
   const pathname = usePathname()
   const [role, setRole] = useState<'gm' | 'player'>('player')
 
-  // Leggi il ruolo salvato localmente (GM/Player)
+  // ===== NOVITÀ: prova a leggere il ruolo dalla sessione server (/api/auth/me)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/auth/me')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (!alive || !data?.ok) return
+        const r = (data.user?.role as 'gm' | 'player') || 'player'
+        setRole(r)
+        // sincronizza anche il vecchio storage (fallback per parti legacy)
+        try { localStorage.setItem('archei:role', r) } catch {}
+      })
+      .catch(() => {
+        // se fallisce, resta il fallback sotto
+      })
+    return () => { alive = false }
+  }, [])
+
+  // Leggi il ruolo salvato localmente (GM/Player) — Fallback/Compatibilità
   useEffect(() => {
     try {
       const r = (localStorage.getItem('archei:role') || 'player') as 'gm' | 'player'
@@ -129,7 +147,8 @@ export default function SideNav() {
   return (
     <nav className="flex flex-col gap-2">
       {/* Player */}
-      <Link href="/tools/chat" className={linkCls('/tools/chat')}>Chat (Player)</Link>
+      <Link href="/tools/chat" className={linkCls('/tools/chat')}>💬 Chat</Link>
+	  <Link href="/player/sheet" className={linkCls('/tools/chat')}>📜Scheda Personaggio</Link>
 
       {/* GM: visibile solo se role === 'gm' */}
       {isGM && (

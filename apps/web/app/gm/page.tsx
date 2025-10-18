@@ -3,9 +3,10 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 
 export default function GmDashboard() {
+  // Protezione lato client
   useEffect(() => {
     const role = localStorage.getItem('archei:role')
-    if (role !== 'gm') window.location.href = '/'
+    if (role !== 'gm') window.location.href = '/dashboard'
   }, [])
 
   const cards = [

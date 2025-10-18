@@ -12,78 +12,57 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
+    setError(null); setLoading(true)
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Login fallito')
+      if (!res.ok) throw new Error(data?.error || 'Errore di login')
 
-      // opzionale: salva il ruolo locale se ti serve (GM/Player)
-      // localStorage.setItem('archei:role', data.role ?? 'player')
+      const { user } = data
+      // Salva info per header/side
+      localStorage.setItem('archei:role', user.role || 'player')
+      localStorage.setItem('archei:nickname', user.nickname || 'Player')
+      localStorage.setItem('archei:email', user.email || '')
 
-      router.push('/dashboard')
-    } catch (err: any) {
-      setError(err.message || 'Errore di login')
+      // Redirect in base al ruolo (richiesto)
+      if ((user.role || 'player') === 'gm') router.replace('/gm')
+      else router.replace('/dashboard')
+    } catch (err:any) {
+      setError(err?.message || 'Errore di login')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen grid place-items-center">
-      <div className="w-full max-w-md card space-y-4">
+    <main className="max-w-sm mx-auto p-6">
+      <h1 className="text-2xl font-semibold mb-2">Accedi</h1>
+      <p className="text-zinc-400 mb-4">Inserisci credenziali per continuare.</p>
+
+      <form onSubmit={onSubmit} className="space-y-3">
         <div>
-          <h1 className="text-xl font-semibold">Accedi</h1>
-          <p className="text-sm text-zinc-400">Entra in Archei Companion</p>
+          <div className="label">Email</div>
+          <input className="input w-full" value={email} onChange={e=>setEmail(e.target.value)} />
+        </div>
+        <div>
+          <div className="label">Password</div>
+          <input className="input w-full" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
         </div>
 
-        {error && (
-          <div className="rounded-lg border border-red-700 bg-red-900/20 p-2 text-red-300 text-sm">
-            {error}
-          </div>
-        )}
+        {error && <div className="text-sm text-red-400">{error}</div>}
 
-        <form className="space-y-3" onSubmit={onSubmit}>
-          <div>
-            <div className="label">Email</div>
-            <input
-              className="input"
-              type="email"
-              placeholder="tu@esempio.com"
-              value={email}
-              onChange={e=>setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <div className="label">Password</div>
-            <input
-              className="input"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={e=>setPassword(e.target.value)}
-              required
-            />
-          </div>
+        <button className="btn w-full" disabled={loading}>
+          {loading ? 'Accesso…' : 'Accedi'}
+        </button>
 
-          <button className="btn w-full" type="submit" disabled={loading}>
-            {loading ? 'Accesso…' : 'Accedi'}
-          </button>
-        </form>
-
-        <div className="text-sm text-zinc-400">
-          Non hai un account?{' '}
-          <a href="/auth/register" className="text-indigo-400 underline">
-            Registrati
-          </a>
-        </div>
-      </div>
-    </div>
+        <a href="/auth/register" className="text-sm text-indigo-400 underline block mt-2">
+          Non hai un account? Registrati
+        </a>
+      </form>
+    </main>
   )
 }

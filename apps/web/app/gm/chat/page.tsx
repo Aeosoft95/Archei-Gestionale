@@ -73,6 +73,34 @@ export default function GmChatPage() {
   const [real, setReal] = useState(5)
   const [lastRoll, setLastRoll] = useState<any>(null)
 
+  // ===== Nick sincronizzato con account (NUOVO) =====
+  const [nickUI, setNickUI] = useState<string>(() => {
+    try { return localStorage.getItem('archei:nick') || '' } catch { return '' }
+  })
+  useEffect(() => {
+    let aborted = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        const nickname = data?.user?.nickname as string | undefined
+        const role = (data?.user?.role as string | undefined) || 'player'
+        if (nickname) {
+          try { localStorage.setItem('archei:nick', nickname) } catch {}
+          if (!aborted) setNickUI(nickname)
+        }
+        try { localStorage.setItem('archei:role', role) } catch {}
+      } catch {}
+    })()
+    // resta in sync se cambia in un’altra tab
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'archei:nick' && typeof e.newValue === 'string') setNickUI(e.newValue)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => { aborted = true; window.removeEventListener('storage', onStorage) }
+  }, [])
+
   // ===== Stato anteprima NPC =====
   const [npcPreview, setNpcPreview] = useState<{ name: string; portrait: string } | null>(null)
   // ===== Stato anteprima MOSTRO =====
@@ -212,7 +240,10 @@ export default function GmChatPage() {
   // azioni
   function sendChat(text:string){
     if (!config) return
-    send({ t:'chat:msg', room: config.room, nick: config.nick, text, ts:Date.now(), channel:'global' })
+    // usa il nickname sincronizzato dall'account se presente,
+    // altrimenti fallback al nick della config WS o "Player"
+    const who = (nickUI && nickUI.trim()) ? nickUI.trim() : (config.nick || 'Player')
+    send({ t:'chat:msg', room: config.room, nick: who, text, ts:Date.now(), channel:'global' })
     // autoscroll immediato quando invii tu
     const el = chatRef.current
     if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })

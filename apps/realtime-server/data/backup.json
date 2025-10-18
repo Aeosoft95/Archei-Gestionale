@@ -3,8 +3,11 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "Non ho una foto :(",
-      "text": "Triste"
+      "title": "Nuova scena",
+      "text": "asdasdasd",
+      "images": [],
+      "bannerEnabled": true,
+      "bannerColor": "#0ea5e9"
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",
@@ -29,10 +32,10 @@
       "room": "demo",
       "clocks": [
         {
-          "id": "cp02ebr",
-          "name": "entro quanto mi faccio fuori",
-          "value": 8,
-          "max": 8
+          "id": "lihtjg5",
+          "name": "asdasd",
+          "value": 0,
+          "max": 4
         }
       ]
     }
