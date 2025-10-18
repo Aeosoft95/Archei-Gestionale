@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWS, useWSMessages } from '@/components/ws/WSProvider'
 import { archeiRoll } from '@shared/dice'
+import QuickPlayerBar from './QuickPlayerBar' // ⬅️ tool rapido PG
 
 // ===== tipi base chat =====
 type Msg = { nick: string; text: string; ts: number }
@@ -50,25 +51,32 @@ function parseMonsterLine(text: string): { name: string, portrait: string } | nu
   return { name: m[1].trim(), portrait: m[2].trim() }
 }
 
-// ===== storage keys =====
-const LS_SHEET = 'archei:player:sheet'
-const LS_INV   = 'archei:player:inventory'
-const LS_NOTES = 'archei:player:quickNotes'
+// SCENA: "SCENA: Titolo — Descrizione: ..."
+const SCENE_RE = /^SCENA:\s*(.+?)(?:\s*[—-]+\s*Descrizione:\s*(.+))?$/i
+function parseSceneLine(text: string): { title: string, description?: string } | null {
+  const m = text.match(SCENE_RE)
+  if (!m) return null
+  return { title: m[1].trim(), description: (m[2]||'').trim() || undefined }
+}
+
+// CLOCK: "CLOCK: Nome — Stato: 3/6" (o "3 di 6")
+const CLOCK_RE = /^CLOCK:\s*(.+?)\s*[—-]+\s*Stato:\s*(\d+)\s*(?:\/|di)\s*(\d+)/i
+function parseClockLine(text: string): { name: string, curr: number, max: number } | null {
+  const m = text.match(CLOCK_RE)
+  if (!m) return null
+  return { name: m[1].trim(), curr: parseInt(m[2], 10), max: parseInt(m[3], 10) }
+}
+
+// INIZIATIVA: "INIZIATIVA: Nome1, Nome2, Nome3"
+const INIT_RE = /^INIZIATIVA:\s*(.+)$/i
+function parseInitLine(text: string): { order: string[] } | null {
+  const m = text.match(INIT_RE)
+  if (!m) return null
+  const order = m[1].split(',').map(s=>s.trim()).filter(Boolean)
+  return { order }
+}
 
 // ===== tipi anteprime player =====
-type SheetPreview = {
-  name?: string
-  archetype?: string
-  level?: number
-  hp?: number
-  hpMax?: number
-  dif?: number
-  soglia?: number
-}
-type InvPreview = {
-  coins?: number
-  items?: { name: string; qty?: number }[]
-}
 type QuickNote = { id: string; text: string; ts: number }
 
 // ===== util =====
@@ -77,7 +85,6 @@ const uid = ()=> Math.random().toString(36).slice(2,9)
 
 export default function PlayerChatPage() {
   const { config, connected, connecting, error, openSetup, send } = useWS()
-  const room = config?.room || 'default'
 
   // ===== NICK dall’account (/api/auth/me) =====
   const [nickUI, setNickUI] = useState<string>(() => {
@@ -115,37 +122,43 @@ export default function PlayerChatPage() {
   // Anteprime da chat
   const [npcPreview, setNpcPreview] = useState<{ name: string; portrait: string } | null>(null)
   const [monsterPreview, setMonsterPreview] = useState<{ name: string; portrait: string } | null>(null)
+  const [scenePreview, setScenePreview] = useState<{ title: string; description?: string } | null>(null)
+  const [clockPreview, setClockPreview] = useState<{ name: string; curr:number; max:number } | null>(null)
+  const [initPreview, setInitPreview] = useState<{ order: string[] } | null>(null)
 
-  // ===== Colonna destra: dati player (solo struttura) =====
-  const [sheet, setSheet] = useState<SheetPreview>({})
-  const [inv, setInv] = useState<InvPreview>({ items: [] })
+  // ===== Note rapide =====
   const [notes, setNotes] = useState<QuickNote[]>([])
   const [newNote, setNewNote] = useState('')
-
-  // carica anteprime da LS
   useEffect(()=> {
     try {
-      const s = JSON.parse(localStorage.getItem(LS_SHEET) || '{}')
-      setSheet(s || {})
-    } catch {}
-    try {
-      const i = JSON.parse(localStorage.getItem(LS_INV) || '{}')
-      setInv(i || { items: [] })
-    } catch {}
-    try {
-      const n = JSON.parse(localStorage.getItem(LS_NOTES) || '[]')
+      const n = JSON.parse(localStorage.getItem('archei:player:quickNotes') || '[]')
       setNotes(Array.isArray(n)? n : [])
     } catch {}
   }, [])
-
-  // persistenza note
   useEffect(()=> {
-    try { localStorage.setItem(LS_NOTES, JSON.stringify(notes)) } catch {}
+    try { localStorage.setItem('archei:player:quickNotes', JSON.stringify(notes)) } catch {}
   }, [notes])
 
   // ===== WS: ricezione messaggi =====
   useWSMessages((msg) => {
-    if (msg.t === 'chat:msg') setMessages(m=>[...m, {nick: msg.nick, text: msg.text, ts: msg.ts}])
+    if (msg.t === 'chat:msg') {
+      setMessages(m=>[...m, {nick: msg.nick, text: msg.text, ts: msg.ts}])
+      return
+    }
+    // Supporto ad eventi strutturati dal GM
+    if (msg.t === 'scene:set') {
+      setScenePreview({ title: msg.title || 'Scena', description: msg.description || '' })
+      return
+    }
+    if (msg.t === 'clock:update') {
+      setClockPreview({ name: msg.name || 'Clock', curr: msg.curr ?? 0, max: msg.max ?? 4 })
+      return
+    }
+    if (msg.t === 'init:set') {
+      const order: string[] = Array.isArray(msg.order) ? msg.order : []
+      setInitPreview({ order })
+      return
+    }
   })
 
   // ===== Autoscroll chat =====
@@ -177,14 +190,20 @@ export default function PlayerChatPage() {
     sendChat(`Tiro ARCHEI — tot:${res.totalDice}, reali:${res.realDice}, soglia:${res.threshold}, tiri:[${res.rolls.join(',')}], successi:${res.successes}${res.fiveOfFive?' (CRITICO 5/5)':''}`)
   }
 
-  // Anteprime da ultimo messaggio
+  // Anteprime da ultimo messaggio (parsing testuale)
   useEffect(()=>{
     const last = messages[messages.length - 1]
     if (!last) return
     const npc = parseNpcLine(last.text)
     if (npc) { setNpcPreview(npc); return }
     const mon = parseMonsterLine(last.text)
-    if (mon) setMonsterPreview(mon)
+    if (mon) { setMonsterPreview(mon); return }
+    const sc = parseSceneLine(last.text)
+    if (sc) { setScenePreview(sc); return }
+    const ck = parseClockLine(last.text)
+    if (ck) { setClockPreview(ck); return }
+    const init = parseInitLine(last.text)
+    if (init) { setInitPreview(init); return }
   }, [messages])
 
   // ===== Stato WS topbar =====
@@ -253,7 +272,7 @@ export default function PlayerChatPage() {
           <div className="card flex flex-col min-h-0 max-h-[60vh]">
             <div className="font-semibold mb-2">Chat</div>
 
-            {/* ANTEPRIMA NPC */}
+            {/* ANTEPRIME: NPC / MOSTRO / SCENA / CLOCK / INIZIATIVA */}
             {npcPreview && (
               <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
                 <div className="flex items-center gap-3 p-3">
@@ -271,7 +290,6 @@ export default function PlayerChatPage() {
               </div>
             )}
 
-            {/* ANTEPRIMA MOSTRO */}
             {monsterPreview && (
               <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
                 <div className="flex items-center gap-3 p-3">
@@ -289,6 +307,52 @@ export default function PlayerChatPage() {
               </div>
             )}
 
+            {scenePreview && (
+              <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
+                <div className="p-3">
+                  <div className="font-semibold">🎭 Scena: {scenePreview.title}</div>
+                  {scenePreview.description ? (
+                    <div className="text-sm text-zinc-400 mt-1">{scenePreview.description}</div>
+                  ) : null}
+                  <div className="mt-2 text-right">
+                    <button className="btn !bg-zinc-800" onClick={()=>setScenePreview(null)}>Chiudi</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {clockPreview && (
+              <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
+                <div className="p-3">
+                  <div className="font-semibold">⏰ Clock: {clockPreview.name}</div>
+                  <div className="text-sm text-zinc-400 mt-1">Stato: {clockPreview.curr}/{clockPreview.max}</div>
+                  <div className="w-full bg-zinc-800 h-2 rounded mt-2 overflow-hidden">
+                    <div className="h-full bg-zinc-200" style={{ width: `${Math.min(100, Math.max(0, (clockPreview.curr/clockPreview.max)*100))}%` }} />
+                  </div>
+                  <div className="mt-2 text-right">
+                    <button className="btn !bg-zinc-800" onClick={()=>setClockPreview(null)}>Chiudi</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {initPreview && (
+              <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
+                <div className="p-3">
+                  <div className="font-semibold">⚔️ Iniziativa</div>
+                  {initPreview.order.length ? (
+                    <ol className="list-decimal list-inside text-sm mt-1 space-y-0.5">
+                      {initPreview.order.map((n, i)=>(<li key={`${n}-${i}`}>{n}</li>))}
+                    </ol>
+                  ) : <div className="text-sm text-zinc-500">Nessun ordine impostato.</div>}
+                  <div className="mt-2 text-right">
+                    <button className="btn !bg-zinc-800" onClick={()=>setInitPreview(null)}>Chiudi</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stream chat */}
             <div ref={chatRef} className="flex-1 overflow-auto">
               {messages.length===0 ? (
                 <div className="text-sm text-zinc-500">Nessun messaggio.</div>
@@ -315,6 +379,33 @@ export default function PlayerChatPage() {
                         </div>
                       )
                     }
+                    const sc = parseSceneLine(m.text)
+                    if (sc) {
+                      return (
+                        <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2">
+                          <span className="text-teal-400">{m.nick}:</span>{' '}
+                          <span className="font-semibold">🎭 Scena:</span> {sc.title}{sc.description? ` — ${sc.description}` : ''}
+                        </div>
+                      )
+                    }
+                    const ck = parseClockLine(m.text)
+                    if (ck) {
+                      return (
+                        <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2">
+                          <span className="text-teal-400">{m.nick}:</span>{' '}
+                          <span className="font-semibold">⏰ Clock:</span> {ck.name} — {ck.curr}/{ck.max}
+                        </div>
+                      )
+                    }
+                    const init = parseInitLine(m.text)
+                    if (init) {
+                      return (
+                        <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2">
+                          <span className="text-teal-400">{m.nick}:</span>{' '}
+                          <span className="font-semibold">⚔️ Iniziativa:</span> {init.order.join(', ')}
+                        </div>
+                      )
+                    }
                     return (
                       <div key={i} className="bg-zinc-900/50 rounded-xl px-3 py-2 break-words">
                         <span className="text-teal-400">{m.nick}:</span>{' '}
@@ -329,67 +420,25 @@ export default function PlayerChatPage() {
           </div>
         </div>
 
-        {/* DESTRA: scheda / inventario / note */}
+        {/* DESTRA: Tool rapido + Inventario + Note */}
         <div className="space-y-4">
-          {/* Scheda personaggio (ANTEPRIMA) */}
-          <div className="card space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold">Scheda personaggio</div>
-              {/* il redirect lo aggiungeremo dopo */}
-              <button className="btn !bg-zinc-800" disabled>Apri scheda</button>
-            </div>
-            <div className="rounded-xl border border-zinc-800 p-3">
-              <div className="text-lg font-bold">{sheet.name || '—'}</div>
-              <div className="text-sm text-zinc-400">
-                {sheet.archetype || '—'} • Livello {sheet.level ?? '—'}
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-sm mt-3">
-                <div className="bg-zinc-900/50 rounded-lg p-2">
-                  <div className="text-zinc-400 text-xs">HP</div>
-                  <div className="font-semibold">
-                    {typeof sheet.hp === 'number' && typeof sheet.hpMax === 'number' ? `${clamp(sheet.hp,0,sheet.hpMax)}/${sheet.hpMax}` : '—'}
-                  </div>
-                </div>
-                <div className="bg-zinc-900/50 rounded-lg p-2">
-                  <div className="text-zinc-400 text-xs">DIF</div>
-                  <div className="font-semibold">{typeof sheet.dif === 'number' ? sheet.dif : '—'}</div>
-                </div>
-                <div className="bg-zinc-900/50 rounded-lg p-2">
-                  <div className="text-zinc-400 text-xs">Soglia</div>
-                  <div className="font-semibold">{typeof sheet.soglia === 'number' ? `${sheet.soglia}+` : '—'}</div>
-                </div>
-              </div>
-            </div>
-            <div className="text-xs text-zinc-500">
-              (Questa è un’anteprima. Imposteremo i dati reali quando creeremo la sezione “Scheda Player”.)
-            </div>
-          </div>
+          {/* ⬇️ Tool rapido PG (contiene anche "Apri scheda") */}
+          <QuickPlayerBar />
 
           {/* Inventario (ESSENZIALE) */}
           <div className="card space-y-2">
             <div className="flex items-center justify-between">
               <div className="font-semibold">Inventario</div>
-              {/* il redirect lo aggiungeremo dopo */}
               <button className="btn !bg-zinc-800" disabled>Apri inventario</button>
             </div>
             <div className="rounded-xl border border-zinc-800 p-3">
               <div className="flex items-center justify-between text-sm">
                 <div className="text-zinc-400">Monete</div>
-                <div className="font-semibold">{typeof inv.coins === 'number' ? inv.coins : 0}</div>
+                <div className="font-semibold">0</div>
               </div>
               <div className="mt-2 text-sm">
                 <div className="text-zinc-400 mb-1">Oggetti principali</div>
-                {inv.items && inv.items.length > 0 ? (
-                  <ul className="list-disc list-inside space-y-0.5">
-                    {inv.items.slice(0,5).map((it,idx)=>(
-                      <li key={`${it.name}-${idx}`}>
-                        {it.name} {typeof it.qty==='number' ? `×${it.qty}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="text-zinc-500">Nessun oggetto.</div>
-                )}
+                <div className="text-zinc-500">Nessun oggetto.</div>
               </div>
             </div>
             <div className="text-xs text-zinc-500">
