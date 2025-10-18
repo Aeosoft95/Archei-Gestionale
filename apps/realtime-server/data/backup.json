@@ -3,11 +3,11 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "Nuova scena",
-      "text": "asdasdasd",
+      "title": "Nuova scenashshshs",
+      "text": "xczZxxz",
       "images": [],
       "bannerEnabled": true,
-      "bannerColor": "#0ea5e9"
+      "bannerColor": "#ff0000"
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",
