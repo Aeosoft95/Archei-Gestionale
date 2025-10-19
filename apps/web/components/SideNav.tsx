@@ -147,8 +147,11 @@ export default function SideNav() {
   return (
     <nav className="flex flex-col gap-2">
       {/* Player */}
+	  <Link href="/dashboard" className={linkCls('/dashboard')}>📊 Dashboard Player</Link>
       <Link href="/tools/chat" className={linkCls('/tools/chat')}>💬 Chat</Link>
-	  <Link href="/player/sheet" className={linkCls('/tools/chat')}>📜Scheda Personaggio</Link>
+	  <Link href="/player/sheet" className={linkCls('/player/sheet')}>📜 Scheda Personaggio</Link>
+	  <Link href="/player/inventory" className={linkCls('/player/inventory')}>🎒 Inventario</Link>
+	  <Link href="/player/notes" className={linkCls('/player/notes')}>📝 Note</Link>
 
       {/* GM: visibile solo se role === 'gm' */}
       {isGM && (

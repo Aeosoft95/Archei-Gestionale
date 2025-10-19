@@ -68,7 +68,7 @@ export default function PlayerDashboard(){
             <div className="text-sm text-zinc-400">Ultimo salvataggio: {data.lastSeen ? new Date(data.lastSeen).toLocaleString() : '—'}</div>
 
             <div className="grid md:grid-cols-3 gap-2">
-              <Link href="/player/scheda" className="btn">📜 Scheda</Link>
+              <Link href="/player/sheet" className="btn">📜 Scheda</Link>
               <Link href="/player/inventario" className="btn">🎒 Inventario</Link>
               <Link href="/player/note" className="btn">📝 Note</Link>
             </div>

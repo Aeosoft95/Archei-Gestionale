@@ -32,8 +32,8 @@ export default function PlayerDashboard() {
 
   const cards = [
     { href: '/tools/chat', label: 'Chat (Player)', icon: '🗨️' },
-    { href: '/player/scheda', label: 'Scheda Personaggio', icon: '📜' },
-    { href: '/player/inventario', label: 'Inventario', icon: '🎒' },
+    { href: '/player/sheet', label: 'Scheda Personaggio', icon: '📜' },
+    { href: '/player/inventory', label: 'Inventario', icon: '🎒' },
     { href: '/player/notes', label: 'Note Personali', icon: '📝' },
     { href: '/player/dashboard', label: 'Dashboard Player', icon: '🧭' }, // questa stessa pagina
   ]

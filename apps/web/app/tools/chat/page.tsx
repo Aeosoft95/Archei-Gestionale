@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWS, useWSMessages } from '@/components/ws/WSProvider'
 import { archeiRoll } from '@shared/dice'
-import QuickPlayerBar from './QuickPlayerBar' // ⬅️ tool rapido PG
+import QuickPlayerBar from './QuickPlayerBar'              // tool rapido PG (include Note)
+import QuickInventoryBar from '@/components/QuickInventoryBar' // tool rapido inventario
 
 // ===== tipi base chat =====
 type Msg = { nick: string; text: string; ts: number }
@@ -76,19 +77,6 @@ function parseInitLine(text: string): { order: string[] } | null {
   return { order }
 }
 
-// ===== tipi anteprime player =====
-type QuickNote = { id: string; text: string; ts: number }
-
-// === Display dal GM: tipi ===
-type CountdownItem = { label:string; value:number; max:number }
-type ClockItem = { name:string; value:number; max:number }
-type InitEntry = { id?:string; name:string; init:number }
-type InitiativeState = { entries:InitEntry[]; active:number; round:number; visible:boolean }
-
-// ===== util =====
-const clamp = (n:number, a:number, b:number)=> Math.max(a, Math.min(b, n))
-const uid = ()=> Math.random().toString(36).slice(2,9)
-
 export default function PlayerChatPage() {
   const { config, connected, connecting, error, openSetup, send } = useWS()
 
@@ -134,22 +122,9 @@ export default function PlayerChatPage() {
 
   // === Stati display “ufficiali” inviati dal GM via WS ===
   const [displayScene, setDisplayScene] = useState<{title?:string; text?:string; images?:string[]; bannerEnabled?:boolean; bannerColor?:string}>({})
-  const [displayCountdown, setDisplayCountdown] = useState<CountdownItem[]>([])
-  const [displayClocks, setDisplayClocks] = useState<ClockItem[]>([])
-  const [displayInitiative, setDisplayInitiative] = useState<InitiativeState>({ entries:[], active:0, round:1, visible:false })
-
-  // ===== Note rapide =====
-  const [notes, setNotes] = useState<QuickNote[]>([])
-  const [newNote, setNewNote] = useState('')
-  useEffect(()=> {
-    try {
-      const n = JSON.parse(localStorage.getItem('archei:player:quickNotes') || '[]')
-      setNotes(Array.isArray(n)? n : [])
-    } catch {}
-  }, [])
-  useEffect(()=> {
-    try { localStorage.setItem('archei:player:quickNotes', JSON.stringify(notes)) } catch {}
-  }, [notes])
+  const [displayCountdown, setDisplayCountdown] = useState<{label:string; value:number; max:number}[]>([])
+  const [displayClocks, setDisplayClocks] = useState<{name:string; value:number; max:number}[]>([])
+  const [displayInitiative, setDisplayInitiative] = useState<{ entries:{id?:string; name:string; init:number}[]; active:number; round:number; visible:boolean }>({ entries:[], active:0, round:1, visible:false })
 
   // ===== WS: ricezione messaggi =====
   useWSMessages((msg) => {
@@ -158,7 +133,6 @@ export default function PlayerChatPage() {
       return
     }
 
-    // === Eventi strutturati dal GM (come nella chat GM) ===
     if (msg.t === 'DISPLAY_SCENE_STATE' || msg.t === 'DISPLAY_SCENE') {
       setDisplayScene({
         title: msg.title,
@@ -181,7 +155,7 @@ export default function PlayerChatPage() {
       setDisplayInitiative(msg.initiative)
     }
 
-    // === Supporto ai messaggi legacy (testuali) rimane invariato sotto ===
+    // Legacy testuali
     if (msg.t === 'scene:set') {
       setScenePreview({ title: msg.title || 'Scena', description: msg.description || '' })
       return
@@ -226,7 +200,7 @@ export default function PlayerChatPage() {
     sendChat(`Tiro ARCHEI — tot:${res.totalDice}, reali:${res.realDice}, soglia:${res.threshold}, tiri:[${res.rolls.join(',')}], successi:${res.successes}${res.fiveOfFive?' (CRITICO 5/5)':''}`)
   }
 
-  // Anteprime da ultimo messaggio (parsing testuale)
+  // Anteprime da ultimo messaggio
   useEffect(()=>{
     const last = messages[messages.length - 1]
     if (!last) return
@@ -248,22 +222,6 @@ export default function PlayerChatPage() {
     const label = connecting ? 'conn…' : connected ? 'online' : (error ? 'errore' : 'offline')
     return <div className="flex items-center gap-2 text-xs text-zinc-400"><div className={`w-2.5 h-2.5 rounded-full ${color}`} />{label}</div>
   }, [connected, connecting, error])
-
-  // ===== Note rapide: azioni =====
-  function addNote() {
-    const t = (newNote || '').trim()
-    if (!t) return
-    setNotes(n => [...n, { id: uid(), text: t, ts: Date.now() }])
-    setNewNote('')
-  }
-  function delNote(id:string) {
-    setNotes(n => n.filter(x=>x.id!==id))
-  }
-  function sendNoteToChat(id:string) {
-    const n = notes.find(x=>x.id===id)
-    if (!n) return
-    sendChat(`📝 Nota: ${n.text}`)
-  }
 
   return (
     <div className="min-h-screen flex flex-col gap-4">
@@ -308,7 +266,7 @@ export default function PlayerChatPage() {
           <div className="card flex flex-col min-h-0 max-h-[60vh]">
             <div className="font-semibold mb-2">Chat</div>
 
-            {/* === DISPLAY DAL GM (scene/banner, countdown, clocks, iniziativa) === */}
+            {/* === DISPLAY DAL GM === */}
             {(displayScene.title || displayScene.text || (displayScene.images?.length) || displayCountdown.length>0 || displayClocks.length>0 || (displayInitiative.visible && displayInitiative.entries.length>0)) && (
               <div className="mb-3 rounded-xl border border-zinc-800 p-3 bg-zinc-900/40 space-y-3">
                 <div className="text-sm font-semibold">Display (dal GM)</div>
@@ -316,7 +274,6 @@ export default function PlayerChatPage() {
                 {/* Scena */}
                 {(displayScene.title || displayScene.text || (displayScene.images?.length)) && (
                   <div className="space-y-2">
-                    {/* Banner colorato con titolo dentro */}
                     {displayScene.bannerEnabled && displayScene.bannerColor && (
                       <div className="rounded-xl overflow-hidden border border-zinc-800">
                         <div className="px-4 py-3" style={{ backgroundColor: displayScene.bannerColor }}>
@@ -329,7 +286,6 @@ export default function PlayerChatPage() {
                       </div>
                     )}
 
-                    {/* Immagine 1a */}
                     {displayScene.images?.[0] && (
                       <img
                         src={displayScene.images[0]}
@@ -338,12 +294,10 @@ export default function PlayerChatPage() {
                       />
                     )}
 
-                    {/* Titolo normale se non c'è banner */}
                     {!displayScene.bannerEnabled && displayScene.title && (
                       <div className="text-xl font-bold">{displayScene.title}</div>
                     )}
 
-                    {/* Testo */}
                     {displayScene.text && (
                       <div className="whitespace-pre-wrap text-zinc-200">{displayScene.text}</div>
                     )}
@@ -413,7 +367,7 @@ export default function PlayerChatPage() {
               </div>
             )}
 
-            {/* ANTEPRIME: NPC / MOSTRO / SCENA / CLOCK / INIZIATIVA (parsing da testo) */}
+            {/* ANTEPRIME: NPC / MOSTRO / SCENA / CLOCK / INIZIATIVA */}
             {npcPreview && (
               <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
                 <div className="flex items-center gap-3 p-3">
@@ -561,64 +515,13 @@ export default function PlayerChatPage() {
           </div>
         </div>
 
-        {/* DESTRA: Tool rapido + Inventario + Note */}
+        {/* DESTRA: Tool rapidi */}
         <div className="space-y-4">
-          {/* ⬇️ Tool rapido PG (contiene anche "Apri scheda") */}
+          {/* Tool rapido PG (include Note) */}
           <QuickPlayerBar />
 
-          {/* Inventario (ESSENZIALE) */}
-          <div className="card space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold">Inventario</div>
-              <button className="btn !bg-zinc-800" disabled>Apri inventario</button>
-            </div>
-            <div className="rounded-xl border border-zinc-800 p-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="text-zinc-400">Monete</div>
-                <div className="font-semibold">0</div>
-              </div>
-              <div className="mt-2 text-sm">
-                <div className="text-zinc-400 mb-1">Oggetti principali</div>
-                <div className="text-zinc-500">Nessun oggetto.</div>
-              </div>
-            </div>
-            <div className="text-xs text-zinc-500">
-              (Anteprima: mostriamo max 5 oggetti. Il resto nella pagina Inventario.)
-            </div>
-          </div>
-
-          {/* Note rapide */}
-          <div className="card space-y-2">
-            <div className="font-semibold">Note rapide</div>
-            <textarea
-              className="input min-h-24"
-              placeholder="Scrivi una nota veloce…"
-              value={newNote}
-              onChange={e=>setNewNote(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <button className="btn" onClick={addNote}>+ Aggiungi</button>
-              <button className="btn !bg-zinc-800" disabled>Apri note personali</button>
-            </div>
-
-            <div className="space-y-2 pt-2 border-t border-zinc-800">
-              {notes.length === 0 ? (
-                <div className="text-sm text-zinc-500">Nessuna nota.</div>
-              ) : notes.slice().reverse().map(n=>(
-                <div key={n.id} className="rounded-xl border border-zinc-800 p-2 text-sm bg-zinc-900/40">
-                  <div className="mb-2 whitespace-pre-wrap break-words">{linkifyParts(n.text)}</div>
-                  <div className="flex items-center justify-between text-xs text-zinc-500">
-                    <div>{new Date(n.ts).toLocaleString()}</div>
-                    <div className="flex gap-2">
-                      <button className="btn" onClick={()=>sendNoteToChat(n.id)}>Invia in chat</button>
-                      <button className="btn !bg-zinc-800" onClick={()=>delNote(n.id)}>Elimina</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
+          {/* Tool rapido Inventario */}
+          <QuickInventoryBar />
         </div>
       </div>
     </div>
@@ -629,10 +532,21 @@ function ChatInput({ onSend, disabled }: { onSend:(txt:string)=>void; disabled?:
   const [txt,setTxt] = useState('')
   return (
     <div className="mt-3 flex gap-2">
-      <input className="input" value={txt} disabled={disabled} onChange={e=>setTxt(e.target.value)}
-             onKeyDown={e=>{ if(e.key==='Enter' && txt.trim() && !disabled){ onSend(txt); setTxt('') } }}
-             placeholder={disabled?'Non connesso…':'Scrivi… (Invio per inviare)'} />
-      <button className="btn" onClick={()=>{ if(txt.trim() && !disabled){ onSend(txt); setTxt('') } }} disabled={disabled}>Invia</button>
+      <input
+        className="input"
+        value={txt}
+        disabled={disabled}
+        onChange={e=>setTxt(e.target.value)}
+        onKeyDown={e=>{ if(e.key==='Enter' && txt.trim() && !disabled){ onSend(txt); setTxt('') } }}
+        placeholder={disabled?'Non connesso…':'Scrivi… (Invio per inviare)'}
+      />
+      <button
+        className="btn"
+        onClick={()=>{ if(txt.trim() && !disabled){ onSend(txt); setTxt('') } }}
+        disabled={disabled}
+      >
+        Invia
+      </button>
     </div>
   )
 }
