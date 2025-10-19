@@ -1,31 +1,57 @@
-// apps/web/app/api/admin/make-gm/route.ts
+// app/api/admin/make-gm/route.ts
+import { NextResponse } from 'next/server'
+
+// Se usi variabili d'ambiente lato server, stai su runtime Node.js
 export const runtime = 'nodejs'
 
-import { NextRequest } from 'next/server'
-import { z } from 'zod'
-import db from '@/lib/db'   // <-- usa l'export default del tuo db.ts
+// TODO: sostituisci questa funzione con l’update reale sul DB
+async function updateUserRoleByNickname(nickname: string): Promise<{ nickname: string } | null> {
+  // Esempio con Prisma (scommenta e adatta):
+  /**
+  import { prisma } from '@/lib/prisma'
+  const user = await prisma.user.update({
+    where: { nickname },
+    data: { role: 'gm' },
+    select: { nickname: true },
+  })
+  return user
+  */
 
-const Body = z.object({
-  email: z.string().email(),
-})
+  // Placeholder: fingi successo (sostituisci con DB reale)
+  // Ritorna null se l’utente non esiste.
+  return { nickname }
+}
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const auth = req.headers.get('authorization') || ''
-    const secret = auth.replace(/^Bearer\s+/i, '')
-    if (!process.env.ADMIN_SECRET || secret !== process.env.ADMIN_SECRET) {
-      return Response.json({ error: 'Non autorizzato' }, { status: 401 })
+    const { nickname, password } = await req.json?.() ?? {}
+
+    if (!nickname || !password) {
+      return NextResponse.json({ ok: false, error: 'Missing nickname or password' }, { status: 400 })
     }
 
-    const { email } = Body.parse(await req.json())
-    const stmt = db.prepare(`UPDATE users SET role='gm' WHERE email = ?`)
-    const info = stmt.run(email)
-    if (info.changes === 0) {
-      return Response.json({ error: 'Utente non trovato' }, { status: 404 })
+    const secret = process.env.ADMIN_PROMOTE_PASSWORD
+    if (!secret) {
+      // Config errata lato server
+      return NextResponse.json({ ok: false, error: 'Server not configured' }, { status: 500 })
     }
 
-    return Response.json({ ok: true, email, newRole: 'gm' })
-  } catch (err:any) {
-    return Response.json({ error: err?.message || 'Errore' }, { status: 400 })
+    if (password !== secret) {
+      return NextResponse.json({ ok: false, error: 'Invalid password' }, { status: 403 })
+    }
+
+    const res = await updateUserRoleByNickname(String(nickname))
+    if (!res) {
+      return NextResponse.json({ ok: false, error: 'User not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true, user: { nickname: res.nickname, role: 'gm' } })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: 'Bad request' }, { status: 400 })
   }
+}
+
+// Opzionale: rifiuta altri metodi
+export async function GET() {
+  return NextResponse.json({ ok: false, error: 'Method not allowed' }, { status: 405 })
 }
