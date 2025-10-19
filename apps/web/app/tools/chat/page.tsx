@@ -67,7 +67,7 @@ function parseClockLine(text: string): { name: string, curr: number, max: number
   return { name: m[1].trim(), curr: parseInt(m[2], 10), max: parseInt(m[3], 10) }
 }
 
-// INIZIATIVA: "INIZIATIVA: Nome1, Nome2, Nome3"
+// INIZIATIVA: "INIZIATIVA:\s*Nome1, Nome2, Nome3"
 const INIT_RE = /^INIZIATIVA:\s*(.+)$/i
 function parseInitLine(text: string): { order: string[] } | null {
   const m = text.match(INIT_RE)
@@ -78,6 +78,12 @@ function parseInitLine(text: string): { order: string[] } | null {
 
 // ===== tipi anteprime player =====
 type QuickNote = { id: string; text: string; ts: number }
+
+// === Display dal GM: tipi ===
+type CountdownItem = { label:string; value:number; max:number }
+type ClockItem = { name:string; value:number; max:number }
+type InitEntry = { id?:string; name:string; init:number }
+type InitiativeState = { entries:InitEntry[]; active:number; round:number; visible:boolean }
 
 // ===== util =====
 const clamp = (n:number, a:number, b:number)=> Math.max(a, Math.min(b, n))
@@ -119,12 +125,18 @@ export default function PlayerChatPage() {
   const [real, setReal] = useState(5)
   const [lastRoll, setLastRoll] = useState<any>(null)
 
-  // Anteprime da chat
+  // Anteprime da chat (parsing testuale)
   const [npcPreview, setNpcPreview] = useState<{ name: string; portrait: string } | null>(null)
   const [monsterPreview, setMonsterPreview] = useState<{ name: string; portrait: string } | null>(null)
   const [scenePreview, setScenePreview] = useState<{ title: string; description?: string } | null>(null)
   const [clockPreview, setClockPreview] = useState<{ name: string; curr:number; max:number } | null>(null)
   const [initPreview, setInitPreview] = useState<{ order: string[] } | null>(null)
+
+  // === Stati display “ufficiali” inviati dal GM via WS ===
+  const [displayScene, setDisplayScene] = useState<{title?:string; text?:string; images?:string[]; bannerEnabled?:boolean; bannerColor?:string}>({})
+  const [displayCountdown, setDisplayCountdown] = useState<CountdownItem[]>([])
+  const [displayClocks, setDisplayClocks] = useState<ClockItem[]>([])
+  const [displayInitiative, setDisplayInitiative] = useState<InitiativeState>({ entries:[], active:0, round:1, visible:false })
 
   // ===== Note rapide =====
   const [notes, setNotes] = useState<QuickNote[]>([])
@@ -145,7 +157,31 @@ export default function PlayerChatPage() {
       setMessages(m=>[...m, {nick: msg.nick, text: msg.text, ts: msg.ts}])
       return
     }
-    // Supporto ad eventi strutturati dal GM
+
+    // === Eventi strutturati dal GM (come nella chat GM) ===
+    if (msg.t === 'DISPLAY_SCENE_STATE' || msg.t === 'DISPLAY_SCENE') {
+      setDisplayScene({
+        title: msg.title,
+        text: msg.text,
+        images: Array.isArray(msg.images) ? msg.images : undefined,
+        bannerEnabled: !!msg.bannerEnabled,
+        bannerColor: msg.bannerColor
+      })
+    }
+
+    if (msg.t === 'DISPLAY_CLOCKS_STATE' && Array.isArray(msg.clocks)) {
+      setDisplayClocks(msg.clocks)
+    }
+
+    if (msg.t === 'DISPLAY_COUNTDOWN' && Array.isArray(msg.items)) {
+      setDisplayCountdown(msg.items)
+    }
+
+    if (msg.t === 'DISPLAY_INITIATIVE_STATE' && msg.initiative) {
+      setDisplayInitiative(msg.initiative)
+    }
+
+    // === Supporto ai messaggi legacy (testuali) rimane invariato sotto ===
     if (msg.t === 'scene:set') {
       setScenePreview({ title: msg.title || 'Scena', description: msg.description || '' })
       return
@@ -272,7 +308,112 @@ export default function PlayerChatPage() {
           <div className="card flex flex-col min-h-0 max-h-[60vh]">
             <div className="font-semibold mb-2">Chat</div>
 
-            {/* ANTEPRIME: NPC / MOSTRO / SCENA / CLOCK / INIZIATIVA */}
+            {/* === DISPLAY DAL GM (scene/banner, countdown, clocks, iniziativa) === */}
+            {(displayScene.title || displayScene.text || (displayScene.images?.length) || displayCountdown.length>0 || displayClocks.length>0 || (displayInitiative.visible && displayInitiative.entries.length>0)) && (
+              <div className="mb-3 rounded-xl border border-zinc-800 p-3 bg-zinc-900/40 space-y-3">
+                <div className="text-sm font-semibold">Display (dal GM)</div>
+
+                {/* Scena */}
+                {(displayScene.title || displayScene.text || (displayScene.images?.length)) && (
+                  <div className="space-y-2">
+                    {/* Banner colorato con titolo dentro */}
+                    {displayScene.bannerEnabled && displayScene.bannerColor && (
+                      <div className="rounded-xl overflow-hidden border border-zinc-800">
+                        <div className="px-4 py-3" style={{ backgroundColor: displayScene.bannerColor }}>
+                          {displayScene.title && (
+                            <div className="text-lg font-bold text-white drop-shadow-sm">
+                              {displayScene.title}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Immagine 1a */}
+                    {displayScene.images?.[0] && (
+                      <img
+                        src={displayScene.images[0]}
+                        alt=""
+                        className="w-full h-40 md:h-56 object-cover rounded-xl border border-zinc-800"
+                      />
+                    )}
+
+                    {/* Titolo normale se non c'è banner */}
+                    {!displayScene.bannerEnabled && displayScene.title && (
+                      <div className="text-xl font-bold">{displayScene.title}</div>
+                    )}
+
+                    {/* Testo */}
+                    {displayScene.text && (
+                      <div className="whitespace-pre-wrap text-zinc-200">{displayScene.text}</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Countdown */}
+                {displayCountdown.length>0 && (
+                  <div className="space-y-2 border-t border-zinc-800 pt-3">
+                    <div className="text-sm font-semibold">Countdown</div>
+                    {displayCountdown.map((c,i)=>{
+                      const pct = Math.max(0, Math.min(100, Math.round((c.value/(c.max||1))*100)))
+                      return (
+                        <div key={`${c.label}-${i}`}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-zinc-300">{c.label}</span>
+                            <span className="text-zinc-400">{c.value}/{c.max}</span>
+                          </div>
+                          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-teal-500" style={{width:`${pct}%`}}/>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Clocks */}
+                {displayClocks.length>0 && (
+                  <div className="space-y-2 border-t border-zinc-800 pt-3">
+                    <div className="text-sm font-semibold">Clocks</div>
+                    {displayClocks.map((c,i)=>{
+                      const pct = Math.max(0, Math.min(100, Math.round((c.value/(c.max||1))*100)))
+                      return (
+                        <div key={`${c.name}-${i}`}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-zinc-300">{c.name}</span>
+                            <span className="text-zinc-400">{c.value}/{c.max}</span>
+                          </div>
+                          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500" style={{width:`${pct}%`}}/>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Iniziativa */}
+                {displayInitiative.visible && displayInitiative.entries.length>0 && (
+                  <div className="border-t border-zinc-800 pt-3">
+                    <div className="text-sm text-zinc-400 mb-2">Round {displayInitiative.round}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {displayInitiative.entries.map((e,i)=>(
+                        <div
+                          key={(e.id || e.name || i)}
+                          className={`px-3 py-1 rounded-xl border ${i===displayInitiative.active ? 'border-teal-500 bg-teal-600/20' : 'border-zinc-700 bg-zinc-800/50'}`}
+                        >
+                          <span className="font-semibold">{e.name}</span>
+                          <span className="text-xs text-zinc-400 ml-2">({e.init})</span>
+                          {i===displayInitiative.active && <span className="ml-2 text-teal-400">● turno</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ANTEPRIME: NPC / MOSTRO / SCENA / CLOCK / INIZIATIVA (parsing da testo) */}
             {npcPreview && (
               <div className="mb-3 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/40">
                 <div className="flex items-center gap-3 p-3">

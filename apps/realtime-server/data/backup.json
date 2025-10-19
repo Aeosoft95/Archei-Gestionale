@@ -3,11 +3,9 @@
     "demo": {
       "t": "DISPLAY_SCENE_STATE",
       "room": "demo",
-      "title": "asdas",
-      "text": "dasd",
-      "images": [],
-      "bannerEnabled": true,
-      "bannerColor": "#0ea5e9"
+      "title": "",
+      "text": "",
+      "images": []
     },
     "CRISTO": {
       "t": "DISPLAY_SCENE_STATE",
@@ -30,20 +28,7 @@
     "demo": {
       "t": "DISPLAY_CLOCKS_STATE",
       "room": "demo",
-      "clocks": [
-        {
-          "id": "stei9kt",
-          "name": "asdasd",
-          "value": 3,
-          "max": 4
-        },
-        {
-          "id": "hw35eum",
-          "name": "asdasd (copy)",
-          "value": 0,
-          "max": 4
-        }
-      ]
+      "clocks": []
     }
   },
   "initiativeByRoom": {

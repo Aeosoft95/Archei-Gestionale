@@ -57,6 +57,7 @@ const QUALITA_BONUS_D6_ARMOR: Record<QualitaCategoria, number> = {
 }
 
 const clamp = (n:number,a:number,b:number)=>Math.max(a,Math.min(b,n))
+const LS_SHEET = 'archei:player:sheet'
 
 function armorEffectiveD6Auto(tipo: ArmorTipo, qualita: QualitaCategoria) {
   const base = tipo === 'Leggera' ? 1 : tipo === 'Media' ? 2 : tipo === 'Pesante' ? 3 : 3
@@ -113,6 +114,19 @@ export default function QuickPlayerBar() {
   const [data, setData] = useState<PCData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // helper per salvare su LS in modo consistente
+  function persistLS(next: PCData){
+    try { localStorage.setItem(LS_SHEET, JSON.stringify(next)) } catch {}
+  }
+  function patchCurrent(patch: Partial<PCData['current']>){
+    setData(prev => {
+      if (!prev) return prev
+      const next: PCData = { ...prev, current: { ...prev.current, ...patch } }
+      persistLS(next)
+      return next
+    })
+  }
+
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -121,14 +135,53 @@ export default function QuickPlayerBar() {
         if (!res.ok) throw new Error('sheet fetch error')
         const js = await res.json()
         if (!alive) return
-        setData(js.data as PCData)
+        let base = js.data as PCData
+
+        // merge con eventuali override locali (hp/difMod/foc) dal localStorage
+        try {
+          const raw = localStorage.getItem(LS_SHEET)
+          if (raw) {
+            const ov: PCData = JSON.parse(raw)
+            if (ov?.current) {
+              base = {
+                ...base,
+                current: {
+                  ...base.current,
+                  ...('hp' in (ov.current||{}) ? {hp: ov.current.hp} : {}),
+                  ...('difMod' in (ov.current||{}) ? {difMod: ov.current.difMod} : {}),
+                  ...('foc' in (ov.current||{}) ? {foc: ov.current.foc} : {}),
+                }
+              }
+            }
+          }
+        } catch {}
+
+        setData(base)
       } catch {
         setData(null)
       } finally {
         if (alive) setLoading(false)
       }
     })()
-    return () => { alive = false }
+
+    // se cambia LS da un’altra tab, allinea
+    function onStorage(e: StorageEvent){
+      if (e.key !== LS_SHEET || !e.newValue) return
+      try {
+        const ov: PCData = JSON.parse(e.newValue)
+        if (ov?.current) {
+          setData(prev=>{
+            if (!prev) return prev
+            return {
+              ...prev,
+              current: { ...prev.current, ...ov.current }
+            }
+          })
+        }
+      } catch {}
+    }
+    window.addEventListener('storage', onStorage)
+    return () => { alive = false; window.removeEventListener('storage', onStorage) }
   }, [])
 
   const portrait = data?.ident?.portraitUrl || ''
@@ -257,6 +310,72 @@ export default function QuickPlayerBar() {
               <div className="font-semibold">{difDice.tot}d6 <span className="text-xs text-zinc-400">({difDice.reali}/{difDice.teorici})</span></div>
             </div>
           </div>
+
+          {/* === EDIT VELOCE: HP residui + DIF residua === */}
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {/* HP residui */}
+            <div className="bg-zinc-900/50 rounded-lg p-2">
+              <div className="text-xs text-zinc-400">HP residui</div>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  className="btn !bg-zinc-800 px-2"
+                  onClick={()=>{
+                    const curr = typeof data.current?.hp === 'number' ? data.current.hp : 0
+                    patchCurrent({ hp: clamp(curr-1, 0, hpMaxSuggested) })
+                  }}
+                >−</button>
+                <input
+                  type="number"
+                  className="input !h-8"
+                  value={typeof data.current?.hp === 'number' ? data.current.hp : 0}
+                  onChange={(e)=>{
+                    const v = parseInt(e.target.value || '0', 10)
+                    patchCurrent({ hp: clamp(isNaN(v)?0:v, 0, hpMaxSuggested) })
+                  }}
+                />
+                <span className="text-xs text-zinc-500">/ {hpMaxSuggested}</span>
+                <button
+                  className="btn !bg-zinc-800 px-2"
+                  onClick={()=>{
+                    const curr = typeof data.current?.hp === 'number' ? data.current.hp : 0
+                    patchCurrent({ hp: clamp(curr+1, 0, hpMaxSuggested) })
+                  }}
+                >+</button>
+              </div>
+            </div>
+
+            {/* DIF residua (modificatore) */}
+            <div className="bg-zinc-900/50 rounded-lg p-2">
+              <div className="text-xs text-zinc-400">DIF residua</div>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  className="btn !bg-zinc-800 px-2"
+                  onClick={()=>{
+                    const curr = typeof data.current?.difMod === 'number' ? data.current.difMod! : 0
+                    patchCurrent({ difMod: curr - 1 })
+                  }}
+                >−</button>
+                <input
+                  type="number"
+                  className="input !h-8"
+                  value={typeof data.current?.difMod === 'number' ? data.current.difMod! : 0}
+                  onChange={(e)=>{
+                    const v = parseInt(e.target.value || '0', 10)
+                    patchCurrent({ difMod: isNaN(v) ? 0 : v })
+                  }}
+                />
+                <span className="text-xs text-zinc-500">= {difFinal}</span>
+                <button
+                  className="btn !bg-zinc-800 px-2"
+                  onClick={()=>{
+                    const curr = typeof data.current?.difMod === 'number' ? data.current.difMod! : 0
+                    patchCurrent({ difMod: curr + 1 })
+                  }}
+                >+</button>
+              </div>
+            </div>
+          </div>
+          {/* === /EDIT VELOCE === */}
 
           {/* Armi equipaggiate: pool + danni brevi */}
           <div className="mt-3">
