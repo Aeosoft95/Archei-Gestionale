@@ -5,6 +5,7 @@ import { useWS, useWSMessages } from '@/components/ws/WSProvider'
 import { archeiRoll } from '@shared/dice'
 import QuickPlayerBar from './QuickPlayerBar'              // tool rapido PG (include Note)
 import QuickInventoryBar from '@/components/QuickInventoryBar' // tool rapido inventario
+import QuickMapTool from '@/components/QuickMapTool'
 
 // ===== tipi base chat =====
 type Msg = { nick: string; text: string; ts: number }

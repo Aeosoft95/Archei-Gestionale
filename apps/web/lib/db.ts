@@ -38,5 +38,28 @@ const hasIsGm = db.prepare(`PRAGMA table_info(users)`).all()
 if (!hasIsGm) {
   db.exec(`ALTER TABLE users ADD COLUMN is_gm INTEGER NOT NULL DEFAULT 0;`)
 }
+// --- Session tables (idempotenti)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS game_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    kind TEXT,
+    owner_user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(owner_user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS session_members (
+    session_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('gm','player')),
+    joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY(session_id, user_id),
+    FOREIGN KEY(session_id) REFERENCES game_sessions(id),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  );
+`);
 
 export default db

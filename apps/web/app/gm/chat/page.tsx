@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useWS, useWSMessages } from '@/components/ws/WSProvider'
 import DicePreview from '@/components/DicePreview'
 import { archeiRoll } from '@shared/dice'
+import QuickMapTool from '@/components/QuickMapTool'
 
 type Msg = { nick: string; text: string; ts: number }
 type InitEntry = { id:string; name:string; init:number }
